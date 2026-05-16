@@ -4,11 +4,14 @@ import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
 import 'package:fitness_care_bagerhat/core/extensions/datetime_ext.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_error_state.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_shimmer.dart';
+import 'package:fitness_care_bagerhat/app/router/routes.dart';
+import 'package:fitness_care_bagerhat/features/admin/members/member.dart';
 import 'package:fitness_care_bagerhat/features/member/home/member_home_controller.dart';
 import 'package:fitness_care_bagerhat/features/member/home/member_home_state.dart';
 import 'package:fitness_care_bagerhat/features/member/home/widgets/member_home_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class MemberHomeScreen extends ConsumerWidget {
@@ -50,7 +53,7 @@ class _Content extends StatelessWidget {
         children: [
           _Greeting(name: data.member.name),
           const SizedBox(height: AppSpacing.s24),
-          _SubscriptionHero(member: data.member),
+          _SubscriptionHero(subscription: data.activeSubscription),
           const SizedBox(height: AppSpacing.s24),
           Text('Your Progress', style: AppText.titleMedium),
           const SizedBox(height: AppSpacing.s16),
@@ -58,7 +61,7 @@ class _Content extends StatelessWidget {
             children: [
               MemberStatMini(
                 label: 'Weight',
-                value: '72.5', // Placeholder
+                value: (data.member.currentWeight ?? 0).toString(),
                 unit: 'kg',
                 color: AppColors.primary,
               ),
@@ -79,7 +82,7 @@ class _Content extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.s24),
-          _QuickActions(),
+          const _QuickActions(),
           const SizedBox(height: AppSpacing.s24),
           if (data.weightTrend.isNotEmpty)
             WeightMiniChart(data: data.weightTrend),
@@ -122,16 +125,52 @@ class _Greeting extends StatelessWidget {
 }
 
 class _SubscriptionHero extends StatelessWidget {
-  const _SubscriptionHero({required this.member});
-  final dynamic member;
+  const _SubscriptionHero({required this.subscription});
+  final MemberSubscription? subscription;
 
   @override
   Widget build(BuildContext context) {
+    if (subscription == null) {
+      return Container(
+        width: double.infinity,
+        padding: AppSpacing.paddingAll24,
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.05),
+          borderRadius: AppSpacing.r24,
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
+        ),
+        child: Column(
+          children: [
+            Icon(PhosphorIcons.handWaving(), color: AppColors.primary, size: 40),
+            const SizedBox(height: AppSpacing.s12),
+            Text(
+              'Welcome to Fitness Care!',
+              style: AppText.titleMedium,
+            ),
+            const SizedBox(height: AppSpacing.s8),
+            Text(
+              'Visit the gym office to activate your membership plan and start your journey.',
+              textAlign: TextAlign.center,
+              style: AppText.bodySmall.copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final sub = subscription!;
+    final total = sub.endDate.difference(sub.startDate).inDays;
+    final used = DateTime.now().difference(sub.startDate).inDays;
+    final progress = total > 0 ? (used / total).clamp(0.0, 1.0) : 0.0;
+    final daysLeft = sub.endDate.difference(DateTime.now()).inDays;
+
     return Container(
       width: double.infinity,
       padding: AppSpacing.paddingAll24,
       decoration: BoxDecoration(
-        gradient: AppColors.gradientGreen,
+        gradient: daysLeft < 7
+            ? AppColors.gradientOrange
+            : AppColors.gradientGreen,
         borderRadius: AppSpacing.r24,
         boxShadow: [
           BoxShadow(
@@ -158,14 +197,14 @@ class _SubscriptionHero extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.s8),
           Text(
-            member.planName ?? 'Standard Plan',
+            sub.note ?? 'Active Plan',
             style: AppText.titleLarge.copyWith(color: Colors.white),
           ),
           const SizedBox(height: AppSpacing.s20),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: 0.65, // Placeholder
+              value: progress,
               backgroundColor: Colors.white.withValues(alpha: 0.2),
               color: AppColors.accent,
               minHeight: 6,
@@ -173,8 +212,15 @@ class _SubscriptionHero extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.s12),
           Text(
-            '21 days left until renewal',
+            '$daysLeft days left until renewal',
             style: AppText.labelSmall.copyWith(color: Colors.white),
+          ),
+          const SizedBox(height: AppSpacing.s4),
+          Text(
+            'Renews ${sub.endDate.toDisplay()}',
+            style: AppText.labelSmall.copyWith(
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
           ),
         ],
       ),
@@ -183,6 +229,8 @@ class _SubscriptionHero extends StatelessWidget {
 }
 
 class _QuickActions extends StatelessWidget {
+  const _QuickActions();
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -192,6 +240,7 @@ class _QuickActions extends StatelessWidget {
             label: 'Log Workout',
             icon: PhosphorIcons.barbell(),
             color: AppColors.primary,
+            onTap: () => context.push(Routes.memberWorkoutLog),
           ),
         ),
         const SizedBox(width: AppSpacing.s12),
@@ -200,6 +249,7 @@ class _QuickActions extends StatelessWidget {
             label: 'Log Diet',
             icon: PhosphorIcons.bowlFood(),
             color: AppColors.accent,
+            onTap: () => context.push(Routes.memberDietLog),
           ),
         ),
       ],
@@ -208,30 +258,39 @@ class _QuickActions extends StatelessWidget {
 }
 
 class _ActionChip extends StatelessWidget {
-  const _ActionChip({required this.label, required this.icon, required this.color});
+  const _ActionChip({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
   final String label;
   final IconData icon;
   final Color color;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.s12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: AppSpacing.r12,
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: AppText.labelMedium.copyWith(color: color),
-          ),
-        ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.s12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: AppSpacing.r12,
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: AppText.labelMedium.copyWith(color: color),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,5 +1,4 @@
 import 'package:fitness_care_bagerhat/app/router/routes.dart';
-import 'package:fitness_care_bagerhat/app/theme/app_colors.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';

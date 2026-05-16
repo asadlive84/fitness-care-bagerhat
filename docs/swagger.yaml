@@ -342,6 +342,31 @@ paths:
       tags:
       - admin/members
   /api/v1/admin/members/{id}:
+    delete:
+      description: |-
+        Removes the member plus all related records (subscriptions, payments,
+        logs, messages, notifications, FCM tokens) in a single transaction.
+      parameters:
+      - description: Member UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Permanently delete a member and all their data
+      tags:
+      - admin/members
     get:
       parameters:
       - description: Member UUID
@@ -393,6 +418,36 @@ paths:
       security:
       - BearerAuth: []
       summary: Update member profile
+      tags:
+      - admin/members
+  /api/v1/admin/members/{id}/password/reset:
+    post:
+      description: |-
+        Generates a new temporary password for the member. The member
+        must change it on next login. Returns the plaintext temp password
+        so the admin can share it with the member.
+      parameters:
+      - description: Member UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Reset a member's password (admin)
       tags:
       - admin/members
   /api/v1/admin/members/{id}/payments:
@@ -1103,16 +1158,14 @@ paths:
       - member
   /api/v1/member/subscription:
     get:
+      description: |-
+        Returns 200 with the subscription object, or 200 with null data
+        when no active subscription exists (never returns 404).
       produces:
       - application/json
       responses:
         "200":
           description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
           schema:
             additionalProperties: true
             type: object

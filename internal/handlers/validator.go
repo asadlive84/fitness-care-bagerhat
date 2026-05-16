@@ -57,13 +57,38 @@ func fieldErrMsg(e validator.FieldError) string {
 		return "This field is required"
 	case "email":
 		return "Must be a valid email address"
+	case "uuid":
+		return "Must be a valid UUID"
 	case "min":
+		if isNumericKind(e) {
+			return fmt.Sprintf("Must be at least %s", e.Param())
+		}
 		return fmt.Sprintf("Must be at least %s characters", e.Param())
 	case "max":
+		if isNumericKind(e) {
+			return fmt.Sprintf("Must be at most %s", e.Param())
+		}
 		return fmt.Sprintf("Must be at most %s characters", e.Param())
+	case "gt":
+		return fmt.Sprintf("Must be greater than %s", e.Param())
+	case "gte":
+		return fmt.Sprintf("Must be %s or greater", e.Param())
 	case "oneof":
 		return fmt.Sprintf("Must be one of: %s", e.Param())
 	default:
 		return fmt.Sprintf("Failed validation: %s", e.Tag())
+	}
+}
+
+// isNumericKind reports whether the validated field is a numeric type so that
+// min/max error messages omit the word "characters".
+func isNumericKind(e validator.FieldError) bool {
+	switch e.Kind().String() {
+	case "int", "int8", "int16", "int32", "int64",
+		"uint", "uint8", "uint16", "uint32", "uint64",
+		"float32", "float64":
+		return true
+	default:
+		return false
 	}
 }

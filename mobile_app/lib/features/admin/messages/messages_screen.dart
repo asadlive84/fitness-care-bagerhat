@@ -1,15 +1,17 @@
+import 'package:fitness_care_bagerhat/app/router/routes.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_colors.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_spacing.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
 import 'package:fitness_care_bagerhat/core/extensions/datetime_ext.dart';
+import 'package:fitness_care_bagerhat/core/widgets/gym_bottom_sheet.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_empty_state.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_error_state.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_shimmer.dart';
-import 'package:fitness_care_bagerhat/core/widgets/gym_bottom_sheet.dart';
 import 'package:fitness_care_bagerhat/features/admin/messages/messages_controller.dart';
 import 'package:fitness_care_bagerhat/features/admin/messages/widgets/compose_message_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class MessagesScreen extends ConsumerWidget {
@@ -86,7 +88,7 @@ class MessagesScreen extends ConsumerWidget {
       );
     }
 
-    if (state.history.isEmpty) {
+    if (state.conversations.isEmpty) {
       return const GymEmptyState(
         message: 'No messages sent yet.',
         animationPath: 'assets/animations/empty_messages.json',
@@ -98,31 +100,45 @@ class MessagesScreen extends ConsumerWidget {
           ref.read(messagesControllerProvider.notifier).load(refresh: true),
       child: ListView.separated(
         padding: AppSpacing.paddingAll16,
-        itemCount: state.history.length,
+        itemCount: state.conversations.length,
         separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.s12),
         itemBuilder: (context, index) {
-          final msg = state.history[index];
+          final conv = state.conversations[index];
+          final isUnread = conv.senderRole == 'member';
           return ListTile(
             contentPadding: EdgeInsets.zero,
+            onTap: () => context.push(Routes.adminChat(conv.memberId)),
             leading: CircleAvatar(
-              backgroundColor: msg.type == 'sms'
-                  ? AppColors.info.withValues(alpha: 0.1)
-                  : AppColors.primary.withValues(alpha: 0.1),
-              child: Icon(
-                msg.type == 'sms' ? PhosphorIcons.chatText() : PhosphorIcons.bell(),
-                color: msg.type == 'sms' ? AppColors.info : AppColors.primary,
-                size: 20,
-              ),
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+              child: Icon(PhosphorIcons.user(), color: AppColors.primary, size: 20),
             ),
-            title: Text(msg.recipientName, style: AppText.titleSmall),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Member …${conv.memberId.substring(conv.memberId.length - 6)}',
+                    style: AppText.titleSmall,
+                  ),
+                ),
+                if (isUnread)
+                  Container(
+                    width: 8, height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary, shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
             subtitle: Text(
-              msg.content,
+              conv.lastMessage,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: AppText.bodySmall,
+              style: AppText.bodySmall.copyWith(
+                fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
+              ),
             ),
             trailing: Text(
-              msg.createdAt.toDisplay(),
+              conv.lastSentAt.toRelative(),
               style: AppText.labelSmall.copyWith(color: AppColors.textHint),
             ),
           );
@@ -132,7 +148,7 @@ class MessagesScreen extends ConsumerWidget {
   }
 
   void _showCompose(BuildContext context, {bool isBulk = false}) {
-    GymBottomSheet.show(
+    GymBottomSheet.show<void>(
       context: context,
       title: isBulk ? 'Bulk Message' : 'Send Message',
       child: ComposeMessageSheet(isBulk: isBulk),

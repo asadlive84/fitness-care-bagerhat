@@ -92,6 +92,20 @@ func (f *fakeMemberRepo) ListExpiringSoon(_ context.Context, _ int) ([]*models.M
 	return nil, nil
 }
 
+func (f *fakeMemberRepo) ResetPasswordByAdmin(_ context.Context, _ uuid.UUID, _ string) error {
+	f.callCount.Add(1)
+	return nil
+}
+
+func (f *fakeMemberRepo) Delete(_ context.Context, id uuid.UUID) error {
+	f.callCount.Add(1)
+	if m, ok := f.members[id]; ok {
+		delete(f.byPhone, m.Phone)
+		delete(f.members, id)
+	}
+	return nil
+}
+
 // compile-time interface check
 var _ repositories.MemberRepository = (*fakeMemberRepo)(nil)
 

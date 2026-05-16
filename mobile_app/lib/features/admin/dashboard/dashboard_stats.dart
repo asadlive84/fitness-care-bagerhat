@@ -11,7 +11,6 @@ class DashboardStats with _$DashboardStats {
     @JsonKey(name: 'pending_payments') required int pendingPayments,
     @JsonKey(name: 'monthly_revenue') required double monthlyRevenue,
     @JsonKey(name: 'revenue_chart') required List<ChartPoint> revenueChart,
-    @JsonKey(name: 'attendance_chart') required List<ChartPoint> attendanceChart,
   }) = _DashboardStats;
 
   factory DashboardStats.fromJson(Map<String, dynamic> json) =>

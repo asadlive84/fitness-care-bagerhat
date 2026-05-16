@@ -1,6 +1,5 @@
 import 'package:fitness_care_bagerhat/app/theme/app_spacing.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
-import 'package:fitness_care_bagerhat/core/widgets/gym_button.dart';
 import 'package:fitness_care_bagerhat/features/admin/members/member_repository.dart';
 import 'package:fitness_care_bagerhat/features/admin/members/widgets/member_form.dart';
 import 'package:flutter/material.dart';
@@ -18,16 +17,28 @@ class CreateMemberScreen extends ConsumerStatefulWidget {
 class _CreateMemberScreenState extends ConsumerState<CreateMemberScreen> {
   bool _isLoading = false;
 
-  Future<void> _onSubmit(String name, String phone, String? email) async {
+  Future<void> _onSubmit(MemberFormData data) async {
     setState(() => _isLoading = true);
     try {
-      final member = await ref.read(memberRepositoryProvider).create(
-            name: name,
-            phone: phone,
+      final result = await ref.read(memberRepositoryProvider).create(
+            name: data.name,
+            phone: data.phone,
+            goal: data.goal,
+            currentWeight: data.currentWeight,
+            heightCm: data.heightCm,
+            joinDate: data.joinDate,
+            dateOfBirth: data.dateOfBirth,
+            religion: data.religion,
+            bloodGroup: data.bloodGroup,
+            hobbies: data.hobbies,
+            presentAddress: data.presentAddress,
+            permanentAddress: data.permanentAddress,
+            occupation: data.occupation,
+            nid: data.nid,
+            emergencyPhone: data.emergencyPhone,
           );
       if (mounted) {
-        // Show success dialog with temp password (simulated since backend returns it)
-        _showSuccessDialog(name, '123456'); // Backend should return this
+        _showSuccessDialog(data.name, result.tempPassword);
       }
     } catch (e) {
       if (mounted) {
@@ -41,10 +52,10 @@ class _CreateMemberScreenState extends ConsumerState<CreateMemberScreen> {
   }
 
   void _showSuccessDialog(String name, String tempPassword) {
-    showDialog(
+    showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Member Created!'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -53,7 +64,8 @@ class _CreateMemberScreenState extends ConsumerState<CreateMemberScreen> {
             Text('Temporary password for $name:'),
             const SizedBox(height: AppSpacing.s12),
             Container(
-              padding: EdgeInsets.all(AppSpacing.s16),
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.s16),
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
                 borderRadius: AppSpacing.r8,
@@ -61,34 +73,32 @@ class _CreateMemberScreenState extends ConsumerState<CreateMemberScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    tempPassword,
-                    style: AppText.mono.copyWith(fontSize: 32),
-                  ),
+                  Text(tempPassword, style: AppText.mono),
+                  const SizedBox(width: AppSpacing.s8),
                   IconButton(
-                    icon: const Icon(Icons.copy),
+                    icon: const Icon(Icons.copy, size: 18),
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: tempPassword));
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Copied to clipboard')),
+                        const SnackBar(content: Text('Copied!')),
                       );
                     },
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.s16),
+            const SizedBox(height: AppSpacing.s12),
             Text(
-              'Please share this password with the member. They will be forced to change it on their first login.',
-              style: AppText.bodyMedium,
+              'Share this with the member. They must change it on their first login.',
+              style: AppText.bodySmall,
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              context.pop(); // Go back to list
+              Navigator.pop(ctx);
+              context.pop();
             },
             child: const Text('Done'),
           ),
@@ -102,19 +112,17 @@ class _CreateMemberScreenState extends ConsumerState<CreateMemberScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Add Member')),
       body: SingleChildScrollView(
-        padding: AppSpacing.paddingAll24,
+        padding: AppSpacing.paddingAll20,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'A temporary password will be generated for this member.',
+              'Fill in the member details. A temporary password will be generated automatically.',
               style: AppText.bodyMedium,
             ),
+            const SizedBox(height: AppSpacing.s24),
+            MemberForm(isLoading: _isLoading, onSubmit: _onSubmit),
             const SizedBox(height: AppSpacing.s32),
-            MemberForm(
-              isLoading: _isLoading,
-              onSubmit: _onSubmit,
-            ),
           ],
         ),
       ),

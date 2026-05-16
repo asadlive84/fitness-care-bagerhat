@@ -1,4 +1,3 @@
-import 'package:fitness_care_bagerhat/core/api/api_exception.dart';
 import 'package:fitness_care_bagerhat/features/admin/members/member.dart';
 import 'package:fitness_care_bagerhat/features/admin/members/member_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,7 +33,7 @@ class MemberDetailController extends StateNotifier<AsyncValue<Member>> {
       final currentStatus = state.value!.status;
       final newStatus = currentStatus == 'active' ? 'inactive' : 'active';
       await _repository.updateStatus(_memberId, newStatus);
-      load();
+      await load();
     } catch (e, stack) {
       // In a real app, show a snackbar
       state = AsyncValue.error(e, stack);

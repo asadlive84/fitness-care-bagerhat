@@ -8,6 +8,7 @@ import (
 
 	sqlcdb "github.com/asadlive84/fitness-care-bagerhat/internal/database/sqlc"
 	"github.com/asadlive84/fitness-care-bagerhat/internal/models"
+	"github.com/asadlive84/fitness-care-bagerhat/internal/repositories"
 	"github.com/google/uuid"
 )
 
@@ -27,13 +28,16 @@ func (r *PlanRepo) Create(ctx context.Context, p *models.PlanTemplate) error {
 		DurationDays: p.DurationDays,
 		DefaultPrice: p.DefaultPrice,
 	})
-	return err
+	return mapErr(err)
 }
 
+// GetByID returns a plan by primary key.
+// Returns repositories.ErrNotFound when no row matches so callers can use
+// errors.Is without importing database-driver types.
 func (r *PlanRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.PlanTemplate, error) {
 	row, err := r.q.GetPlanTemplateByID(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("plan not found")
+		return nil, repositories.ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get plan by id: %w", err)
@@ -53,6 +57,9 @@ func (r *PlanRepo) List(ctx context.Context) ([]*models.PlanTemplate, error) {
 	return plans, nil
 }
 
+// Update saves plan changes.
+// UpdatePlanTemplate uses RETURNING, so sql.ErrNoRows means no row matched —
+// mapErr converts that to repositories.ErrNotFound.
 func (r *PlanRepo) Update(ctx context.Context, p *models.PlanTemplate) error {
 	_, err := r.q.UpdatePlanTemplate(ctx, sqlcdb.UpdatePlanTemplateParams{
 		ID:           p.ID,
@@ -61,11 +68,17 @@ func (r *PlanRepo) Update(ctx context.Context, p *models.PlanTemplate) error {
 		DefaultPrice: p.DefaultPrice,
 	})
 	if err != nil {
-		return fmt.Errorf("update plan: %w", err)
+		return fmt.Errorf("update plan: %w", mapErr(err))
 	}
 	return nil
 }
 
+// Delete removes a plan template.
+// Returns repositories.ErrFKViolation when active subscriptions reference the
+// plan; mapErr converts the raw pq FK error to the sentinel value.
 func (r *PlanRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.q.DeletePlanTemplate(ctx, id)
+	if err := r.q.DeletePlanTemplate(ctx, id); err != nil {
+		return mapErr(err)
+	}
+	return nil
 }

@@ -24,6 +24,10 @@ class PlansController extends StateNotifier<PlansState> {
 
   final PlanRepository _repository;
 
+  /// Reloads the plan list.
+  ///
+  /// Catches ALL exceptions — not just [ApiException] — and updates state
+  /// accordingly so [isLoading] is never left permanently `true`.
   Future<void> load() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -31,15 +35,25 @@ class PlansController extends StateNotifier<PlansState> {
       state = state.copyWith(isLoading: false, plans: response.data ?? []);
     } on ApiException catch (e) {
       state = state.copyWith(isLoading: false, error: e);
+    } catch (_) {
+      // Non-API errors (parse errors, network glitches). Reset loading so the
+      // UI doesn't stay stuck on shimmer; keep the existing plan list.
+      state = state.copyWith(isLoading: false);
     }
   }
 
-  Future<void> deletePlan(String id) async {
+  /// Deletes a plan and reloads the list.
+  ///
+  /// Returns the error message on failure so the caller can show a snackbar.
+  Future<String?> deletePlan(String id) async {
     try {
       await _repository.delete(id);
-      load();
+      await load();
+      return null; // success
+    } on ApiException catch (e) {
+      return e.message;
     } catch (e) {
-      // Handle error
+      return e.toString();
     }
   }
 }

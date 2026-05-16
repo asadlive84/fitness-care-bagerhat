@@ -162,11 +162,12 @@ func (h *MemberHandler) UpdateProfile(c *fiber.Ctx) error {
 
 // GetActiveSubscription godoc
 // @Summary     Get member's current active subscription
+// @Description Returns 200 with the subscription object, or 200 with null data
+// @Description when no active subscription exists (never returns 404).
 // @Tags        member
 // @Security    BearerAuth
 // @Produce     json
 // @Success     200 {object} map[string]any
-// @Failure     404 {object} map[string]any
 // @Router      /api/v1/member/subscription [get]
 func (h *MemberHandler) GetActiveSubscription(c *fiber.Ctx) error {
 	id, err := memberID(c)
@@ -177,7 +178,10 @@ func (h *MemberHandler) GetActiveSubscription(c *fiber.Ctx) error {
 	sub, err := h.subs.GetActiveSubscription(c.UserContext(), id)
 	if err != nil {
 		if errors.Is(err, services.ErrNotFound) {
-			return utils.ErrorResponse(c, fiber.StatusNotFound, "NOT_FOUND", "No active subscription", nil)
+			// Return 200 with null data so the mobile client never crashes on a
+			// missing subscription — the client checks data == null instead of
+			// catching a 404 error.
+			return utils.SuccessResponse(c, fiber.StatusOK, nil)
 		}
 		h.log.ErrorContext(c.UserContext(), "get active subscription", "error", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Could not fetch subscription", nil)

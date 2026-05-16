@@ -117,6 +117,15 @@ func (r *MemberRepo) UpdatePassword(ctx context.Context, id uuid.UUID, hash stri
 	return nil
 }
 
+// ResetPasswordByAdmin writes to DB (setting must_change_password=true) then invalidates cache.
+func (r *MemberRepo) ResetPasswordByAdmin(ctx context.Context, id uuid.UUID, hash string) error {
+	if err := r.db.ResetPasswordByAdmin(ctx, id, hash); err != nil {
+		return err
+	}
+	r.deleteKey(ctx, memberKey(id))
+	return nil
+}
+
 // List is never cached (too many filter combinations).
 func (r *MemberRepo) List(ctx context.Context, f models.MemberFilter) ([]*models.Member, int64, error) {
 	return r.db.List(ctx, f)
@@ -125,6 +134,20 @@ func (r *MemberRepo) List(ctx context.Context, f models.MemberFilter) ([]*models
 // ListExpiringSoon is never cached — used by scheduler, needs fresh data.
 func (r *MemberRepo) ListExpiringSoon(ctx context.Context, days int) ([]*models.Member, error) {
 	return r.db.ListExpiringSoon(ctx, days)
+}
+
+// Delete removes the member from DB then purges their cache entries.
+func (r *MemberRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	// Fetch phone before deletion so we can invalidate the phone key.
+	m, err := r.db.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := r.db.Delete(ctx, id); err != nil {
+		return err
+	}
+	r.invalidateMember(ctx, id, m.Phone)
+	return nil
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────

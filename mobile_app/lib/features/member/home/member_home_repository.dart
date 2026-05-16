@@ -1,7 +1,6 @@
 import 'package:fitness_care_bagerhat/core/api/api_client.dart';
 import 'package:fitness_care_bagerhat/core/api/api_response.dart';
 import 'package:fitness_care_bagerhat/features/admin/members/member.dart';
-import 'package:fitness_care_bagerhat/features/member/home/member_home_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final memberHomeRepositoryProvider = Provider<MemberHomeRepository>((ref) {

@@ -17,6 +17,9 @@ extension DateTimeExt on DateTime {
   /// Formats time only: "10:30 AM"
   String toTimeOnly() => DateFormat('hh:mm a').format(this);
 
+  /// Formats time for chat bubbles: "10:30"
+  String toDisplayTime() => DateFormat('HH:mm').format(this);
+
   /// Formats as short date: "16 May"
   String toShortDate() => DateFormat('dd MMM').format(this);
 

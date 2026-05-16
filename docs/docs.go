@@ -149,6 +149,42 @@ const docTemplate = `{
                     }
                 }
             },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes the member plus all related records (subscriptions, payments,\nlogs, messages, notifications, FCM tokens) in a single transaction.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin/members"
+                ],
+                "summary": "Permanently delete a member and all their data",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Member UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
             "patch": {
                 "security": [
                     {
@@ -186,6 +222,48 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/members/{id}/password/reset": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Generates a new temporary password for the member. The member\nmust change it on next login. Returns the plaintext temp password\nso the admin can share it with the member.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin/members"
+                ],
+                "summary": "Reset a member's password (admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Member UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1333,6 +1411,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Returns 200 with the subscription object, or 200 with null data\nwhen no active subscription exists (never returns 404).",
                 "produces": [
                     "application/json"
                 ],
@@ -1343,13 +1422,6 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true

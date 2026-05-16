@@ -23,7 +23,8 @@ class PaymentsController extends StateNotifier<PaymentsState> {
   PaymentsController({required PaymentRepository repository})
       : _repository = repository,
         super(const PaymentsState()) {
-    load();
+    // No global /admin/payments list endpoint exists.
+    // Per-member payments are shown in the member detail screen.
     loadSummary();
   }
 

@@ -41,11 +41,20 @@ class GymEmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Lottie.asset(
-              animationPath,
+            SizedBox(
               width: 200,
               height: 200,
-              repeat: true,
+              child: Lottie.asset(
+                animationPath,
+                repeat: true,
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    Icons.inventory_2_outlined,
+                    size: 80,
+                    color: Colors.grey.withValues(alpha: 0.5),
+                  );
+                },
+              ),
             ),
             const SizedBox(height: AppSpacing.s24),
             if (title != null) ...[

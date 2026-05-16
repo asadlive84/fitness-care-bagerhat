@@ -45,7 +45,7 @@ type assignPlanReq struct {
 
 type updateActiveReq struct {
 	EndDate    string   `json:"end_date"    validate:"required"`
-	FinalPrice float64  `json:"final_price" validate:"required,min=0"`
+	FinalPrice float64  `json:"final_price" validate:"min=0"` // 0 allowed (e.g. free extension)
 	Note       *string  `json:"note"`
 }
 

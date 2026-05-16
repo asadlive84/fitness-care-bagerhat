@@ -1,46 +1,97 @@
+import 'package:fitness_care_bagerhat/app/router/routes.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_colors.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_spacing.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
 import 'package:fitness_care_bagerhat/core/auth/auth_provider.dart';
+import 'package:fitness_care_bagerhat/core/widgets/gym_avatar.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_button.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_card.dart';
+import 'package:fitness_care_bagerhat/features/member/home/member_home_controller.dart';
+import 'package:fitness_care_bagerhat/features/member/notifications/notification_repository.dart';
+import 'package:fitness_care_bagerhat/features/member/profile/edit_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-class MemberProfileScreen extends ConsumerWidget {
+/// ## MemberProfileScreen
+///
+/// Member self-service profile with navigation to subscription, payments,
+/// edit profile, notification settings, and logout.
+class MemberProfileScreen extends ConsumerStatefulWidget {
   const MemberProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MemberProfileScreen> createState() =>
+      _MemberProfileScreenState();
+}
+
+class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
+  bool _isMuted = false;
+  bool _isTogglingMute = false;
+
+  Future<void> _toggleMute() async {
+    setState(() => _isTogglingMute = true);
+    try {
+      await ref.read(notificationRepositoryProvider).setMutePreference(
+            muted: !_isMuted,
+          );
+      setState(() => _isMuted = !_isMuted);
+    } catch (_) {
+      // Silently fail — notification mute is non-critical
+    } finally {
+      if (mounted) setState(() => _isTogglingMute = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authProvider).value;
+    final homeState = ref.watch(memberHomeControllerProvider);
+    final member = homeState.valueOrNull?.member;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Profile'),
+        actions: [
+          if (member != null)
+            IconButton(
+              icon: Icon(PhosphorIcons.pencilSimple()),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<bool>(
+                  builder: (_) => EditProfileScreen(member: member),
+                ),
+              ).then((updated) {
+                if (updated == true) {
+                  ref.read(memberHomeControllerProvider.notifier).load();
+                }
+              }),
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: AppSpacing.paddingAll20,
         child: Column(
           children: [
             _Header(
-              name: authState?.userName ?? 'Member',
-              phone: '', // Phone not in AuthState, could add if needed
+              name: member?.name ?? authState?.userName ?? 'Member',
+              currentWeight: member?.currentWeight,
             ),
             const SizedBox(height: AppSpacing.s32),
-            
+
             _Section(
               title: 'Membership',
               children: [
                 _Tile(
                   label: 'My Subscription',
                   icon: PhosphorIcons.crown(),
-                  onTap: () {},
+                  onTap: () => context.push(Routes.memberSubscription),
                 ),
                 _Tile(
                   label: 'Payment History',
                   icon: PhosphorIcons.receipt(),
-                  onTap: () {},
+                  onTap: () => context.push(Routes.memberPayments),
                 ),
               ],
             ),
@@ -50,17 +101,25 @@ class MemberProfileScreen extends ConsumerWidget {
               title: 'Preferences',
               children: [
                 _Tile(
-                  label: 'Notification Settings',
-                  icon: PhosphorIcons.bell(),
-                  onTap: () {},
+                  label: 'Mute Notifications',
+                  icon: _isMuted
+                      ? PhosphorIcons.bellSlash()
+                      : PhosphorIcons.bell(),
+                  trailing: _isTogglingMute
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Switch.adaptive(
+                          value: _isMuted,
+                          onChanged: (_) => _toggleMute(),
+                        ),
                 ),
                 _Tile(
-                  label: 'Dark Mode',
-                  icon: PhosphorIcons.moon(),
-                  trailing: Switch.adaptive(
-                    value: Theme.of(context).brightness == Brightness.dark,
-                    onChanged: (val) {},
-                  ),
+                  label: 'Change Password',
+                  icon: PhosphorIcons.key(),
+                  onTap: () => context.push(Routes.changePassword),
                 ),
               ],
             ),
@@ -74,16 +133,11 @@ class MemberProfileScreen extends ConsumerWidget {
                   icon: PhosphorIcons.info(),
                   onTap: () {},
                 ),
-                _Tile(
-                  label: 'Privacy Policy',
-                  icon: PhosphorIcons.shieldCheck(),
-                  onTap: () {},
-                ),
               ],
             ),
             const SizedBox(height: AppSpacing.s40),
 
-            GymButton.secondary(
+            GymButton.danger(
               label: 'Logout',
               icon: Icon(PhosphorIcons.signOut()),
               onPressed: () => _showLogoutDialog(context, ref),
@@ -96,22 +150,23 @@ class MemberProfileScreen extends ConsumerWidget {
   }
 
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Logout'),
         content: const Text('Are you sure you want to sign out?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(ctx);
               ref.read(authProvider.notifier).logout();
             },
-            child: const Text('Logout', style: TextStyle(color: AppColors.error)),
+            child:
+                const Text('Logout', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -120,25 +175,28 @@ class MemberProfileScreen extends ConsumerWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.name, required this.phone});
+  const _Header({
+    required this.name,
+    this.currentWeight,
+  });
+
   final String name;
-  final String phone;
+  final double? currentWeight;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const CircleAvatar(
-          radius: 40,
-          backgroundColor: AppColors.primary,
-          child: Icon(Icons.person, size: 40, color: Colors.white),
-        ),
+        GymAvatar(name: name, size: 80),
         const SizedBox(height: AppSpacing.s16),
         Text(name, style: AppText.titleLarge),
-        Text(
-          phone,
-          style: AppText.bodyMedium.copyWith(color: AppColors.textSecondary),
-        ),
+        if (currentWeight != null) ...[
+          const SizedBox(height: AppSpacing.s4),
+          Text(
+            '${currentWeight!.toStringAsFixed(1)} kg current weight',
+            style: AppText.bodySmall.copyWith(color: AppColors.textHint),
+          ),
+        ],
       ],
     );
   }
@@ -159,9 +217,7 @@ class _Section extends StatelessWidget {
           child: Text(title, style: AppText.labelSmall),
         ),
         GymCard(
-          child: Column(
-            children: children,
-          ),
+          child: Column(children: children),
         ),
       ],
     );

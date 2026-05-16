@@ -7,19 +7,29 @@ import (
 )
 
 // Member is the domain model for gym members.
-// PasswordHash is deliberately absent — credentials are fetched only by the
-// auth repository method (GetCredentials) and never cached or serialised.
+// PasswordHash is deliberately absent — credentials are fetched only via
+// GetMemberCredentials and are never cached or serialised.
 type Member struct {
-	ID                 uuid.UUID `json:"id"`
-	Name               string    `json:"name"`
-	Phone              string    `json:"phone"`
-	Goal               *string   `json:"goal,omitempty"`
-	JoinDate           time.Time `json:"join_date"`
-	CurrentWeight      *float64  `json:"current_weight,omitempty"`
-	Status             string    `json:"status"` // active | inactive
-	MustChangePassword bool      `json:"must_change_password"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID                 uuid.UUID  `json:"id"`
+	Name               string     `json:"name"`
+	Phone              string     `json:"phone"`
+	Goal               *string    `json:"goal,omitempty"`
+	JoinDate           time.Time  `json:"join_date"`
+	CurrentWeight      *float64   `json:"current_weight,omitempty"`
+	HeightCm           *float64   `json:"height_cm,omitempty"`
+	DateOfBirth        *time.Time `json:"date_of_birth,omitempty"`
+	Religion           *string    `json:"religion,omitempty"`
+	BloodGroup         *string    `json:"blood_group,omitempty"`
+	Hobbies            []string   `json:"hobbies,omitempty"`
+	PresentAddress     *string    `json:"present_address,omitempty"`
+	PermanentAddress   *string    `json:"permanent_address,omitempty"`
+	Occupation         *string    `json:"occupation,omitempty"`
+	NID                *string    `json:"nid,omitempty"`
+	EmergencyPhone     *string    `json:"emergency_phone,omitempty"`
+	Status             string     `json:"status"` // active | inactive
+	MustChangePassword bool       `json:"must_change_password"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 // Admin is the domain model for the gym owner account.

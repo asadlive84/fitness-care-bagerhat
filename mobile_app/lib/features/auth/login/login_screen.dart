@@ -262,7 +262,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final settings = ref.read(settingsRepositoryProvider);
     final controller = TextEditingController(text: settings.baseUrl);
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Server Settings'),
@@ -292,12 +292,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           ElevatedButton(
             onPressed: () async {
               await settings.setBaseUrl(controller.text.trim());
-              if (mounted) {
+              if (context.mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('API URL updated. Refreshing...')),
                 );
-                // Trigger a refresh of the apiClient
                 ref.invalidate(apiClientProvider);
               }
             },

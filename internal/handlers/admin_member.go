@@ -22,6 +22,8 @@ type adminMemberSvc interface {
 	ListExpiringSoon(ctx context.Context) ([]*models.Member, error)
 	UpdateMember(ctx context.Context, id uuid.UUID, req services.UpdateMemberRequest) (*models.Member, error)
 	UpdateMemberStatus(ctx context.Context, id uuid.UUID, status string) error
+	ResetMemberPassword(ctx context.Context, id uuid.UUID) (*services.ResetPasswordResult, error)
+	DeleteMember(ctx context.Context, id uuid.UUID) error
 }
 
 // AdminMemberHandler holds HTTP handlers for admin member management.
@@ -44,18 +46,38 @@ func NewAdminMemberHandlerWithSvc(svc adminMemberSvc, log *slog.Logger) *AdminMe
 // ── Request DTOs ──────────────────────────────────────────────────────────────
 
 type createMemberReq struct {
-	Name          string   `json:"name"           validate:"required,min=2,max=100"`
-	Phone         string   `json:"phone"          validate:"required,min=10,max=15"`
-	Goal          *string  `json:"goal"`
-	CurrentWeight *float64 `json:"current_weight"`
-	JoinDate      *string  `json:"join_date"` // optional, YYYY-MM-DD
+	Name             string   `json:"name"              validate:"required,min=2,max=100"`
+	Phone            string   `json:"phone"             validate:"required,min=10,max=15"`
+	Goal             *string  `json:"goal"`
+	CurrentWeight    *float64 `json:"current_weight"`
+	HeightCm         *float64 `json:"height_cm"`
+	JoinDate         *string  `json:"join_date"`         // YYYY-MM-DD
+	DateOfBirth      *string  `json:"date_of_birth"`    // YYYY-MM-DD
+	Religion         *string  `json:"religion"`
+	BloodGroup       *string  `json:"blood_group"`
+	Hobbies          []string `json:"hobbies"`
+	PresentAddress   *string  `json:"present_address"`
+	PermanentAddress *string  `json:"permanent_address"`
+	Occupation       *string  `json:"occupation"`
+	NID              *string  `json:"nid"`
+	EmergencyPhone   *string  `json:"emergency_phone"`
 }
 
 type updateMemberReq struct {
-	Name          string   `json:"name"           validate:"required,min=2,max=100"`
-	Phone         string   `json:"phone"          validate:"required,min=10,max=15"`
-	Goal          *string  `json:"goal"`
-	CurrentWeight *float64 `json:"current_weight"`
+	Name             string   `json:"name"              validate:"required,min=2,max=100"`
+	Phone            string   `json:"phone"             validate:"required,min=10,max=15"`
+	Goal             *string  `json:"goal"`
+	CurrentWeight    *float64 `json:"current_weight"`
+	HeightCm         *float64 `json:"height_cm"`
+	DateOfBirth      *string  `json:"date_of_birth"`    // YYYY-MM-DD
+	Religion         *string  `json:"religion"`
+	BloodGroup       *string  `json:"blood_group"`
+	Hobbies          []string `json:"hobbies"`
+	PresentAddress   *string  `json:"present_address"`
+	PermanentAddress *string  `json:"permanent_address"`
+	Occupation       *string  `json:"occupation"`
+	NID              *string  `json:"nid"`
+	EmergencyPhone   *string  `json:"emergency_phone"`
 }
 
 type updateStatusReq struct {
@@ -80,10 +102,19 @@ func (h *AdminMemberHandler) CreateMember(c *fiber.Ctx) error {
 	}
 
 	svcReq := services.CreateMemberRequest{
-		Name:          req.Name,
-		Phone:         req.Phone,
-		Goal:          req.Goal,
-		CurrentWeight: req.CurrentWeight,
+		Name:             req.Name,
+		Phone:            req.Phone,
+		Goal:             req.Goal,
+		CurrentWeight:    req.CurrentWeight,
+		HeightCm:         req.HeightCm,
+		Religion:         req.Religion,
+		BloodGroup:       req.BloodGroup,
+		Hobbies:          req.Hobbies,
+		PresentAddress:   req.PresentAddress,
+		PermanentAddress: req.PermanentAddress,
+		Occupation:       req.Occupation,
+		NID:              req.NID,
+		EmergencyPhone:   req.EmergencyPhone,
 	}
 	if req.JoinDate != nil {
 		t, err := parseDate(*req.JoinDate)
@@ -92,6 +123,14 @@ func (h *AdminMemberHandler) CreateMember(c *fiber.Ctx) error {
 				"VALIDATION_ERROR", "join_date must be YYYY-MM-DD", nil)
 		}
 		svcReq.JoinDate = t
+	}
+	if req.DateOfBirth != nil {
+		t, err := parseDate(*req.DateOfBirth)
+		if err != nil {
+			return utils.ErrorResponse(c, fiber.StatusBadRequest,
+				"VALIDATION_ERROR", "date_of_birth must be YYYY-MM-DD", nil)
+		}
+		svcReq.DateOfBirth = &t
 	}
 
 	result, err := h.svc.CreateMember(c.UserContext(), svcReq)
@@ -209,12 +248,30 @@ func (h *AdminMemberHandler) UpdateMember(c *fiber.Ctx) error {
 		return nil
 	}
 
-	member, err := h.svc.UpdateMember(c.UserContext(), id, services.UpdateMemberRequest{
-		Name:          req.Name,
-		Phone:         req.Phone,
-		Goal:          req.Goal,
-		CurrentWeight: req.CurrentWeight,
-	})
+	svcUpd := services.UpdateMemberRequest{
+		Name:             req.Name,
+		Phone:            req.Phone,
+		Goal:             req.Goal,
+		CurrentWeight:    req.CurrentWeight,
+		HeightCm:         req.HeightCm,
+		Religion:         req.Religion,
+		BloodGroup:       req.BloodGroup,
+		Hobbies:          req.Hobbies,
+		PresentAddress:   req.PresentAddress,
+		PermanentAddress: req.PermanentAddress,
+		Occupation:       req.Occupation,
+		NID:              req.NID,
+		EmergencyPhone:   req.EmergencyPhone,
+	}
+	if req.DateOfBirth != nil {
+		t, err := parseDate(*req.DateOfBirth)
+		if err != nil {
+			return utils.ErrorResponse(c, fiber.StatusBadRequest,
+				"VALIDATION_ERROR", "date_of_birth must be YYYY-MM-DD", nil)
+		}
+		svcUpd.DateOfBirth = &t
+	}
+	member, err := h.svc.UpdateMember(c.UserContext(), id, svcUpd)
 	if err != nil {
 		switch {
 		case errors.Is(err, services.ErrNotFound):
@@ -258,6 +315,66 @@ func (h *AdminMemberHandler) UpdateMemberStatus(c *fiber.Ctx) error {
 		}
 		h.log.ErrorContext(c.UserContext(), "update member status", "error", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Status update failed", nil)
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// ResetMemberPassword godoc
+// @Summary     Reset a member's password (admin)
+// @Description Generates a new temporary password for the member. The member
+// @Description must change it on next login. Returns the plaintext temp password
+// @Description so the admin can share it with the member.
+// @Tags        admin/members
+// @Security    BearerAuth
+// @Produce     json
+// @Param       id path string true "Member UUID"
+// @Success     200 {object} map[string]any
+// @Failure     404 {object} map[string]any
+// @Router      /api/v1/admin/members/{id}/password/reset [post]
+func (h *AdminMemberHandler) ResetMemberPassword(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest,
+			"INVALID_ID", "Member ID must be a valid UUID", nil)
+	}
+
+	result, err := h.svc.ResetMemberPassword(c.UserContext(), id)
+	if err != nil {
+		if errors.Is(err, services.ErrNotFound) {
+			return utils.ErrorResponse(c, fiber.StatusNotFound, "NOT_FOUND", "Member not found", nil)
+		}
+		h.log.ErrorContext(c.UserContext(), "reset member password", "error", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Password reset failed", nil)
+	}
+
+	return utils.SuccessResponse(c, fiber.StatusOK, result)
+}
+
+// DeleteMember godoc
+// @Summary     Permanently delete a member and all their data
+// @Description Removes the member plus all related records (subscriptions, payments,
+// @Description logs, messages, notifications, FCM tokens) in a single transaction.
+// @Tags        admin/members
+// @Security    BearerAuth
+// @Produce     json
+// @Param       id path string true "Member UUID"
+// @Success     204
+// @Failure     404 {object} map[string]any
+// @Router      /api/v1/admin/members/{id} [delete]
+func (h *AdminMemberHandler) DeleteMember(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest,
+			"INVALID_ID", "Member ID must be a valid UUID", nil)
+	}
+
+	if err := h.svc.DeleteMember(c.UserContext(), id); err != nil {
+		if errors.Is(err, services.ErrNotFound) {
+			return utils.ErrorResponse(c, fiber.StatusNotFound, "NOT_FOUND", "Member not found", nil)
+		}
+		h.log.ErrorContext(c.UserContext(), "delete member", "error", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Delete failed", nil)
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)

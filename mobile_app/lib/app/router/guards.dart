@@ -29,7 +29,8 @@ String? authGuard(BuildContext context, GoRouterState state, Ref ref) {
         : '/change-password';
   }
 
-  // Authenticated — redirect away from login
+  // Authenticated — redirect away from login screen only.
+  // /change-password is accessible voluntarily from Settings.
   if (isLoginRoute) {
     return authState.isAdmin ? '/admin' : '/member';
   }

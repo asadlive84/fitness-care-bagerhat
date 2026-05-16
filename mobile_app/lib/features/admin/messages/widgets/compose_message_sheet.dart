@@ -73,11 +73,16 @@ class _ComposeMessageSheetState extends ConsumerState<ComposeMessageSheet> {
 
     setState(() => _isLoading = true);
     try {
-      await ref.read(messageRepositoryProvider).send(
-            type: _selectedType,
-            content: _contentController.text.trim(),
-            memberIds: widget.isBulk ? null : [_selectedMember!.id],
-          );
+      if (widget.isBulk) {
+        await ref.read(messageRepositoryProvider).sendBroadcast(
+              content: _contentController.text.trim(),
+            );
+      } else {
+        await ref.read(messageRepositoryProvider).sendDirect(
+              memberId: _selectedMember!.id,
+              content: _contentController.text.trim(),
+            );
+      }
       
       await ref.read(messagesControllerProvider.notifier).load(refresh: true);
       if (mounted) Navigator.pop(context, true);

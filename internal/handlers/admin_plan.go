@@ -40,13 +40,13 @@ func NewAdminPlanHandlerWithSvc(svc adminPlanSvc, log *slog.Logger) *AdminPlanHa
 type createPlanReq struct {
 	Name         string  `json:"name"          validate:"required,min=2,max=100"`
 	DurationDays int32   `json:"duration_days" validate:"required,min=1,max=3650"`
-	DefaultPrice float64 `json:"default_price" validate:"required,min=0"`
+	DefaultPrice float64 `json:"default_price" validate:"gt=0"` // price must be positive
 }
 
 type updatePlanReq struct {
 	Name         string  `json:"name"          validate:"required,min=2,max=100"`
 	DurationDays int32   `json:"duration_days" validate:"required,min=1,max=3650"`
-	DefaultPrice float64 `json:"default_price" validate:"required,min=0"`
+	DefaultPrice float64 `json:"default_price" validate:"gt=0"`
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────

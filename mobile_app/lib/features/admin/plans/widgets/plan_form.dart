@@ -20,7 +20,6 @@ class PlanForm extends ConsumerStatefulWidget {
 class _PlanFormState extends ConsumerState<PlanForm> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
-  late final TextEditingController _descriptionController;
   late final TextEditingController _priceController;
   late final TextEditingController _durationController;
   bool _isLoading = false;
@@ -28,51 +27,79 @@ class _PlanFormState extends ConsumerState<PlanForm> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.plan?.name);
-        TextEditingController(text: ''); // Removed description
-    _priceController =
-        TextEditingController(text: widget.plan?.defaultPrice.toString());
-    _durationController =
-        TextEditingController(text: widget.plan?.durationDays.toString());
+    _nameController = TextEditingController(text: widget.plan?.name ?? '');
+    _priceController = TextEditingController(
+      text: widget.plan?.defaultPrice.toStringAsFixed(0) ?? '',
+    );
+    _durationController = TextEditingController(
+      text: widget.plan?.durationDays.toString() ?? '',
+    );
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _descriptionController.dispose();
     _priceController.dispose();
     _durationController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      try {
-        final data = {
-          'name': _nameController.text.trim(),
-          'description': _descriptionController.text.trim(),
-          'price': double.parse(_priceController.text),
-          'duration_days': int.parse(_durationController.text),
-        };
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
-        if (widget.plan == null) {
-          await ref.read(planRepositoryProvider).create(data);
-        } else {
-          await ref.read(planRepositoryProvider).update(widget.plan!.id, data);
-        }
+    final price = double.tryParse(_priceController.text.trim());
+    final days = int.tryParse(_durationController.text.trim());
 
-        ref.read(plansControllerProvider.notifier).load();
-        if (mounted) Navigator.pop(context);
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.toString())),
-          );
-        }
-      } finally {
-        if (mounted) setState(() => _isLoading = false);
+    if (price == null || price <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid price greater than 0')),
+      );
+      return;
+    }
+    if (days == null || days <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid duration in days')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final data = {
+        'name': _nameController.text.trim(),
+        'default_price': price,
+        'duration_days': days,
+      };
+
+      if (widget.plan == null) {
+        await ref.read(planRepositoryProvider).create(data);
+      } else {
+        await ref.read(planRepositoryProvider).update(widget.plan!.id, data);
       }
+
+      // Creation / update succeeded on the backend — close the sheet
+      // immediately so the admin gets instant feedback.
+      // Then trigger a background reload; if the reload itself fails for any
+      // reason (e.g. a parse error), the controller's catch block resets
+      // isLoading so the list screen never gets stuck on shimmers.
+      if (mounted) Navigator.pop(context);
+
+      // unawaited — fire and forget
+      ref.read(plansControllerProvider.notifier).load();
+    } catch (e) {
+      // API or network error — keep the form open, show a clear message.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -81,20 +108,19 @@ class _PlanFormState extends ConsumerState<PlanForm> {
     return Form(
       key: _formKey,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GymTextField(
             label: 'Plan Name',
             hint: 'e.g. Monthly Basic',
             controller: _nameController,
-            validator: (v) => v?.isEmpty ?? true ? 'Required' : null,
-          ),
-          const SizedBox(height: AppSpacing.s20),
-          GymTextField(
-            label: 'Description',
-            hint: 'Describe what\'s included...',
-            controller: _descriptionController,
-            maxLines: 3,
-            validator: (v) => v?.isEmpty ?? true ? 'Required' : null,
+            prefixIcon: Icon(PhosphorIcons.tag()),
+            validator: (v) {
+              if (v == null || v.trim().length < 2) {
+                return 'At least 2 characters required';
+              }
+              return null;
+            },
           ),
           const SizedBox(height: AppSpacing.s20),
           Row(
@@ -104,20 +130,31 @@ class _PlanFormState extends ConsumerState<PlanForm> {
                   label: 'Price (৳)',
                   hint: '1500',
                   controller: _priceController,
-                  keyboardType: TextInputType.number,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   prefixIcon: Icon(PhosphorIcons.money()),
-                  validator: (v) => v?.isEmpty ?? true ? 'Required' : null,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    final n = double.tryParse(v.trim());
+                    if (n == null || n <= 0) return 'Must be > 0';
+                    return null;
+                  },
                 ),
               ),
               const SizedBox(width: AppSpacing.s16),
               Expanded(
                 child: GymTextField(
-                  label: 'Duration (Days)',
+                  label: 'Duration (days)',
                   hint: '30',
                   controller: _durationController,
                   keyboardType: TextInputType.number,
                   prefixIcon: Icon(PhosphorIcons.clock()),
-                  validator: (v) => v?.isEmpty ?? true ? 'Required' : null,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    final n = int.tryParse(v.trim());
+                    if (n == null || n <= 0) return 'Must be ≥ 1';
+                    return null;
+                  },
                 ),
               ),
             ],

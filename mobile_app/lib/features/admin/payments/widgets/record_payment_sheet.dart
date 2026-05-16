@@ -30,7 +30,7 @@ class RecordPaymentSheet extends ConsumerStatefulWidget {
 class _RecordPaymentSheetState extends ConsumerState<RecordPaymentSheet> {
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
-  String _selectedMethod = 'cash';
+  String _selectedMethod = 'Cash';
   bool _isLoading = false;
 
   @override
@@ -60,7 +60,6 @@ class _RecordPaymentSheetState extends ConsumerState<RecordPaymentSheet> {
             method: _selectedMethod,
           );
       
-      await ref.read(paymentsControllerProvider.notifier).load(refresh: true);
       await ref.read(paymentsControllerProvider.notifier).loadSummary();
       
       if (mounted) Navigator.pop(context, true);
@@ -128,21 +127,22 @@ class _MethodSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final methods = [
-      {'id': 'cash', 'label': 'Cash', 'icon': PhosphorIcons.money()},
-      {'id': 'bkash', 'label': 'bKash', 'icon': PhosphorIcons.deviceMobile()},
-      {'id': 'nagad', 'label': 'Nagad', 'icon': PhosphorIcons.deviceMobile()},
-      {'id': 'card', 'label': 'Card', 'icon': PhosphorIcons.creditCard()},
+    // IDs must match backend validation: Cash | bKash | Nagad | Card
+    final methods = <(String id, String label, IconData icon)>[
+      ('Cash', 'Cash', PhosphorIcons.money()),
+      ('bKash', 'bKash', PhosphorIcons.deviceMobile()),
+      ('Nagad', 'Nagad', PhosphorIcons.deviceMobile()),
+      ('Card', 'Card', PhosphorIcons.creditCard()),
     ];
 
     return Row(
       children: methods.map((m) {
-        final isSelected = selectedMethod == m['id'];
+        final isSelected = selectedMethod == m.$1;
         return Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: GestureDetector(
-              onTap: () => onChanged(m['id'] as String),
+              onTap: () => onChanged(m.$1),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.s12),
@@ -156,13 +156,13 @@ class _MethodSelector extends StatelessWidget {
                 child: Column(
                   children: [
                     Icon(
-                      m['icon'] as IconData,
+                      m.$3,
                       color: isSelected ? Colors.white : AppColors.textSecondary,
                       size: 20,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      m['label'] as String,
+                      m.$2,
                       style: AppText.labelSmall.copyWith(
                         color: isSelected ? Colors.white : AppColors.textSecondary,
                         fontSize: 10,

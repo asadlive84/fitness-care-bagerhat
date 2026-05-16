@@ -45,6 +45,10 @@ func (f *fakeMemberRepo) UpdatePassword(_ context.Context, _ uuid.UUID, _ string
 func (f *fakeMemberRepo) ListExpiringSoon(_ context.Context, _ int) ([]*models.Member, error) {
 	return nil, nil
 }
+func (f *fakeMemberRepo) ResetPasswordByAdmin(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
+func (f *fakeMemberRepo) Delete(_ context.Context, _ uuid.UUID) error { return nil }
 
 var _ repositories.MemberRepository = (*fakeMemberRepo)(nil)
 

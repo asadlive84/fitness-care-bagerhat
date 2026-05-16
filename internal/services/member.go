@@ -16,11 +16,21 @@ import (
 
 // CreateMemberRequest carries validated input for member creation.
 type CreateMemberRequest struct {
-	Name          string
-	Phone         string
-	Goal          *string
-	JoinDate      time.Time
-	CurrentWeight *float64
+	Name             string
+	Phone            string
+	Goal             *string
+	JoinDate         time.Time
+	CurrentWeight    *float64
+	HeightCm         *float64
+	DateOfBirth      *time.Time
+	Religion         *string
+	BloodGroup       *string
+	Hobbies          []string
+	PresentAddress   *string
+	PermanentAddress *string
+	Occupation       *string
+	NID              *string
+	EmergencyPhone   *string
 }
 
 // CreateMemberResult bundles the new member with its one-time temp password.
@@ -33,10 +43,20 @@ type CreateMemberResult struct {
 
 // UpdateMemberRequest carries validated profile fields for member update.
 type UpdateMemberRequest struct {
-	Name          string
-	Phone         string
-	Goal          *string
-	CurrentWeight *float64
+	Name             string
+	Phone            string
+	Goal             *string
+	CurrentWeight    *float64
+	HeightCm         *float64
+	DateOfBirth      *time.Time
+	Religion         *string
+	BloodGroup       *string
+	Hobbies          []string
+	PresentAddress   *string
+	PermanentAddress *string
+	Occupation       *string
+	NID              *string
+	EmergencyPhone   *string
 }
 
 // MemberService handles member CRUD business logic.
@@ -73,6 +93,16 @@ func (s *MemberService) CreateMember(ctx context.Context, req CreateMemberReques
 		Goal:               req.Goal,
 		JoinDate:           joinDate,
 		CurrentWeight:      req.CurrentWeight,
+		HeightCm:           req.HeightCm,
+		DateOfBirth:        req.DateOfBirth,
+		Religion:           req.Religion,
+		BloodGroup:         req.BloodGroup,
+		Hobbies:            req.Hobbies,
+		PresentAddress:     req.PresentAddress,
+		PermanentAddress:   req.PermanentAddress,
+		Occupation:         req.Occupation,
+		NID:                req.NID,
+		EmergencyPhone:     req.EmergencyPhone,
 		Status:             "active",
 		MustChangePassword: true,
 		CreatedAt:          time.Now(),
@@ -132,10 +162,20 @@ func (s *MemberService) UpdateMember(ctx context.Context, id uuid.UUID, req Upda
 		return nil, fmt.Errorf("fetch member for update: %w", err)
 	}
 
-	existing.Name = req.Name
-	existing.Phone = req.Phone
-	existing.Goal = req.Goal
-	existing.CurrentWeight = req.CurrentWeight
+	existing.Name             = req.Name
+	existing.Phone            = req.Phone
+	existing.Goal             = req.Goal
+	existing.CurrentWeight    = req.CurrentWeight
+	existing.HeightCm         = req.HeightCm
+	existing.DateOfBirth      = req.DateOfBirth
+	existing.Religion         = req.Religion
+	existing.BloodGroup       = req.BloodGroup
+	existing.Hobbies          = req.Hobbies
+	existing.PresentAddress   = req.PresentAddress
+	existing.PermanentAddress = req.PermanentAddress
+	existing.Occupation       = req.Occupation
+	existing.NID              = req.NID
+	existing.EmergencyPhone   = req.EmergencyPhone
 
 	if err := s.members.Update(ctx, existing); err != nil {
 		if isConflict(err) {
@@ -153,6 +193,50 @@ func (s *MemberService) UpdateMemberStatus(ctx context.Context, id uuid.UUID, st
 			return ErrNotFound
 		}
 		return fmt.Errorf("update member status: %w", err)
+	}
+	return nil
+}
+
+// ResetPasswordResult bundles the new temp password returned to the admin.
+type ResetPasswordResult struct {
+	TempPassword string `json:"temp_password"`
+}
+
+// ResetMemberPassword generates a new cryptographically random temp password,
+// hashes it, stores it, and returns the plaintext so the admin can hand it to
+// the member. The member will be required to change it on next login.
+func (s *MemberService) ResetMemberPassword(ctx context.Context, id uuid.UUID) (*ResetPasswordResult, error) {
+	if _, err := s.members.GetByID(ctx, id); err != nil {
+		if isNotFound(err) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("fetch member for password reset: %w", err)
+	}
+
+	tempPass, err := generateTempPassword()
+	if err != nil {
+		return nil, fmt.Errorf("generate temp password: %w", err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(tempPass), 12)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+
+	if err := s.members.ResetPasswordByAdmin(ctx, id, string(hash)); err != nil {
+		return nil, fmt.Errorf("store reset password: %w", err)
+	}
+
+	return &ResetPasswordResult{TempPassword: tempPass}, nil
+}
+
+// DeleteMember permanently removes a member and all their associated data.
+func (s *MemberService) DeleteMember(ctx context.Context, id uuid.UUID) error {
+	if err := s.members.Delete(ctx, id); err != nil {
+		if isNotFound(err) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("delete member: %w", err)
 	}
 	return nil
 }

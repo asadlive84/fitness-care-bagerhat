@@ -7,6 +7,13 @@ final memberRepositoryProvider = Provider<MemberRepository>((ref) {
   return MemberRepository(apiClient: ref.watch(apiClientProvider));
 });
 
+class CreateMemberResult {
+  final Member member;
+  final String tempPassword;
+
+  CreateMemberResult({required this.member, required this.tempPassword});
+}
+
 class MemberRepository {
   final ApiClient _apiClient;
 
@@ -41,32 +48,51 @@ class MemberRepository {
     return apiResponse.data!;
   }
 
-  Future<Member> create({
+  Future<CreateMemberResult> create({
     required String name,
     required String phone,
     String? goal,
     double? currentWeight,
+    double? heightCm,
     DateTime? joinDate,
+    DateTime? dateOfBirth,
+    String? religion,
+    String? bloodGroup,
+    List<String>? hobbies,
+    String? presentAddress,
+    String? permanentAddress,
+    String? occupation,
+    String? nid,
+    String? emergencyPhone,
   }) async {
     final response = await _apiClient.post(
       '/api/v1/admin/members',
       data: {
         'name': name,
         'phone': phone,
-        if (goal != null) 'goal': goal,
+        if (goal != null && goal.isNotEmpty) 'goal': goal,
         if (currentWeight != null) 'current_weight': currentWeight,
+        if (heightCm != null) 'height_cm': heightCm,
         if (joinDate != null) 'join_date': joinDate.toIso8601String().split('T')[0],
+        if (dateOfBirth != null) 'date_of_birth': dateOfBirth.toIso8601String().split('T')[0],
+        if (religion != null && religion.isNotEmpty) 'religion': religion,
+        if (bloodGroup != null && bloodGroup.isNotEmpty) 'blood_group': bloodGroup,
+        if (hobbies != null && hobbies.isNotEmpty) 'hobbies': hobbies,
+        if (presentAddress != null && presentAddress.isNotEmpty) 'present_address': presentAddress,
+        if (permanentAddress != null && permanentAddress.isNotEmpty) 'permanent_address': permanentAddress,
+        if (occupation != null && occupation.isNotEmpty) 'occupation': occupation,
+        if (nid != null && nid.isNotEmpty) 'nid': nid,
+        if (emergencyPhone != null && emergencyPhone.isNotEmpty) 'emergency_phone': emergencyPhone,
       },
     );
-    final apiResponse = ApiResponse.fromJson(
-      response.data as Map<String, dynamic>,
-      (json) {
-        // Backend returns CreateMemberResult: { member: Member, temp_password: string }
-        final result = json as Map<String, dynamic>;
-        return Member.fromJson(result['member'] as Map<String, dynamic>);
-      },
+
+    final data = response.data as Map<String, dynamic>;
+    final resultData = data['data'] as Map<String, dynamic>;
+
+    return CreateMemberResult(
+      member: Member.fromJson(resultData['member'] as Map<String, dynamic>),
+      tempPassword: resultData['temp_password'] as String,
     );
-    return apiResponse.data!;
   }
 
   Future<Member> update(String id, Map<String, dynamic> data) async {
@@ -90,6 +116,7 @@ class MemberRepository {
     required String planId,
     required double finalPrice,
     DateTime? startDate,
+    String? note,
   }) async {
     await _apiClient.post(
       '/api/v1/admin/members/$memberId/subscriptions',
@@ -97,7 +124,52 @@ class MemberRepository {
         'plan_template_id': planId,
         'final_price': finalPrice,
         if (startDate != null) 'start_date': startDate.toIso8601String().split('T')[0],
+        if (note != null && note.isNotEmpty) 'note': note,
       },
     );
+  }
+
+  Future<ApiResponse<List<MemberSubscription>>> getSubscriptions(String memberId) async {
+    final response = await _apiClient.get('/api/v1/admin/members/$memberId/subscriptions');
+    return ApiResponse.fromJson(
+      response.data as Map<String, dynamic>,
+      (json) => (json as List)
+          .map((e) => MemberSubscription.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Future<MemberSubscription> updateActiveSubscription({
+    required String memberId,
+    required DateTime endDate,
+    required double finalPrice,
+    String? note,
+  }) async {
+    final response = await _apiClient.patch(
+      '/api/v1/admin/members/$memberId/subscriptions/active',
+      data: {
+        'end_date': endDate.toIso8601String().split('T')[0],
+        'final_price': finalPrice,
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+    );
+    final apiResponse = ApiResponse.fromJson(
+      response.data as Map<String, dynamic>,
+      (json) => MemberSubscription.fromJson(json as Map<String, dynamic>),
+    );
+    return apiResponse.data!;
+  }
+
+  Future<String> resetPassword(String memberId) async {
+    final response = await _apiClient.post(
+      '/api/v1/admin/members/$memberId/password/reset',
+    );
+    final data = response.data as Map<String, dynamic>;
+    final resultData = data['data'] as Map<String, dynamic>;
+    return resultData['temp_password'] as String;
+  }
+
+  Future<void> deleteMember(String memberId) async {
+    await _apiClient.delete('/api/v1/admin/members/$memberId');
   }
 }

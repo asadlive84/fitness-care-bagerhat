@@ -100,23 +100,25 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
         role: role,
       );
 
-      final user = authData['user'] as Map<String, dynamic>;
       final mustChangePassword =
-          user['must_change_password'] as bool? ?? false;
+          authData['must_change_password'] as bool? ?? false;
+
+      // The repository already saved user info from JWT
+      final jwtRole = await repo.getUserRole();
+      final name = await repo.getUserName();
 
       return AuthState(
         status: mustChangePassword
             ? AuthStatus.mustChangePassword
             : AuthStatus.authenticated,
-        role: user['role'] as String?,
-        userName: user['name'] as String?,
-        userId: user['id']?.toString(),
+        role: jwtRole ?? role,
+        userName: name ?? identifier.split('@')[0],
       );
     });
 
     state = newState;
     if (newState.hasError) {
-      throw newState.error!;
+      Error.throwWithStackTrace(newState.error!, newState.stackTrace!);
     }
   }
 

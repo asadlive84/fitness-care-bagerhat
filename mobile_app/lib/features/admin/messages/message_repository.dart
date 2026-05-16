@@ -12,29 +12,50 @@ class MessageRepository {
 
   MessageRepository({required ApiClient apiClient}) : _apiClient = apiClient;
 
-  Future<ApiResponse<List<Message>>> list({int page = 1}) async {
-    final response = await _apiClient.get(
-      '/api/v1/messages',
-      queryParameters: {'page': page},
-    );
+  Future<ApiResponse<List<ConversationSummary>>> listConversations() async {
+    final response = await _apiClient.get('/api/v1/admin/messages/conversations');
 
     return ApiResponse.fromJson(
       response.data as Map<String, dynamic>,
-      (json) => (json as List).map((e) => Message.fromJson(e as Map<String, dynamic>)).toList(),
+      (json) => (json as List)
+          .map((e) => ConversationSummary.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
-  Future<void> send({
-    required String type,
+  Future<ApiResponse<List<Message>>> getConversation(String memberId) async {
+    final response = await _apiClient.get('/api/v1/admin/messages/conversations/$memberId');
+
+    return ApiResponse.fromJson(
+      response.data as Map<String, dynamic>,
+      (json) => (json as List)
+          .map((e) => Message.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Future<void> sendBroadcast({
     required String content,
-    List<String>? memberIds, // null means bulk to all
+    String filter = 'all',
   }) async {
     await _apiClient.post(
-      '/api/v1/messages/send',
+      '/api/v1/admin/messages/broadcast',
       data: {
-        'type': type,
         'content': content,
-        if (memberIds != null) 'member_ids': memberIds,
+        'filter': filter,
+      },
+    );
+  }
+
+  Future<void> sendDirect({
+    required String memberId,
+    required String content,
+  }) async {
+    await _apiClient.post(
+      '/api/v1/admin/messages/direct',
+      data: {
+        'member_id': memberId,
+        'content': content,
       },
     );
   }

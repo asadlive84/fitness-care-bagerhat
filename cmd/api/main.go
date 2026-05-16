@@ -221,11 +221,13 @@ func main() {
 	)
 
 	// Admin — member management (Step 5)
-	admin.Post("/members",              adminMemberHandler.CreateMember)
-	admin.Get("/members",               adminMemberHandler.ListMembers)
-	admin.Get("/members/:id",           adminMemberHandler.GetMember)
-	admin.Patch("/members/:id",         adminMemberHandler.UpdateMember)
-	admin.Patch("/members/:id/status",  adminMemberHandler.UpdateMemberStatus)
+	admin.Post("/members",                        adminMemberHandler.CreateMember)
+	admin.Get("/members",                         adminMemberHandler.ListMembers)
+	admin.Get("/members/:id",                     adminMemberHandler.GetMember)
+	admin.Patch("/members/:id",                   adminMemberHandler.UpdateMember)
+	admin.Patch("/members/:id/status",            adminMemberHandler.UpdateMemberStatus)
+	admin.Post("/members/:id/password/reset",     adminMemberHandler.ResetMemberPassword)
+	admin.Delete("/members/:id",                  adminMemberHandler.DeleteMember)
 
 	// Admin — plans (Step 6)
 	admin.Post("/plans",        adminPlanHandler.CreatePlan)

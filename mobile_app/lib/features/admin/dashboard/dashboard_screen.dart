@@ -5,7 +5,6 @@ import 'package:fitness_care_bagerhat/core/widgets/gym_error_state.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_shimmer.dart';
 import 'package:fitness_care_bagerhat/features/admin/dashboard/dashboard_controller.dart';
 import 'package:fitness_care_bagerhat/features/admin/dashboard/dashboard_stats.dart';
-import 'package:fitness_care_bagerhat/features/admin/dashboard/widgets/attendance_chart.dart';
 import 'package:fitness_care_bagerhat/features/admin/dashboard/widgets/revenue_chart.dart';
 import 'package:fitness_care_bagerhat/features/admin/dashboard/widgets/stat_card.dart';
 import 'package:flutter/material.dart';
@@ -61,7 +60,7 @@ class _Content extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: AppSpacing.s12,
             crossAxisSpacing: AppSpacing.s12,
-            childAspectRatio: 1.4,
+            childAspectRatio: 1.2,
             children: [
               StatCard(
                 label: 'Total Members',
@@ -75,12 +74,6 @@ class _Content extends StatelessWidget {
                 value: stats.activeMembers.toString(),
                 icon: PhosphorIcons.clipboardText(),
                 color: AppColors.info,
-              ),
-              StatCard(
-                label: 'Today Attend',
-                value: '42', // Placeholder until API supports today's count
-                icon: PhosphorIcons.calendarCheck(),
-                color: AppColors.success,
               ),
               StatCard(
                 label: 'Due Payments',
@@ -101,16 +94,6 @@ class _Content extends StatelessWidget {
               border: Border.all(color: AppColors.divider),
             ),
             child: RevenueChart(data: stats.revenueChart),
-          ),
-          const SizedBox(height: AppSpacing.s20),
-          Container(
-            padding: AppSpacing.paddingAll20,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: AppSpacing.r24,
-              border: Border.all(color: AppColors.divider),
-            ),
-            child: AttendanceChart(data: stats.attendanceChart),
           ),
           const SizedBox(height: AppSpacing.s32),
         ],
@@ -134,17 +117,14 @@ class _LoadingState extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: AppSpacing.s12,
             crossAxisSpacing: AppSpacing.s12,
-            childAspectRatio: 1.4,
+            childAspectRatio: 1.2,
             children: const [
-              GymShimmer.card(height: 100),
               GymShimmer.card(height: 100),
               GymShimmer.card(height: 100),
               GymShimmer.card(height: 100),
             ],
           ),
           const SizedBox(height: AppSpacing.s24),
-          const GymShimmer.card(height: 250),
-          const SizedBox(height: AppSpacing.s20),
           const GymShimmer.card(height: 250),
         ],
       ),

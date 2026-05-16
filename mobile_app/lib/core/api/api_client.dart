@@ -6,7 +6,6 @@ import 'package:fitness_care_bagerhat/core/api/interceptors/logging_interceptor.
 import 'package:fitness_care_bagerhat/core/api/interceptors/token_interceptor.dart';
 import 'package:fitness_care_bagerhat/core/auth/token_storage.dart';
 import 'package:fitness_care_bagerhat/core/settings/settings_repository.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Provides the singleton [Dio] HTTP client.
@@ -179,7 +178,7 @@ class ApiClient {
         return const NetworkException();
       case DioExceptionType.cancel:
         return const NetworkException('Request cancelled');
-      default:
+      case _:
         break;
     }
 

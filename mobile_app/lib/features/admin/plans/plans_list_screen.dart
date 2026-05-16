@@ -1,19 +1,19 @@
 import 'package:fitness_care_bagerhat/app/theme/app_colors.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_spacing.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
+import 'package:fitness_care_bagerhat/core/extensions/num_ext.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_badge.dart';
+import 'package:fitness_care_bagerhat/core/widgets/gym_bottom_sheet.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_card.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_empty_state.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_error_state.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_shimmer.dart';
 import 'package:fitness_care_bagerhat/features/admin/plans/plan.dart';
 import 'package:fitness_care_bagerhat/features/admin/plans/plans_controller.dart';
+import 'package:fitness_care_bagerhat/features/admin/plans/widgets/plan_form.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-
-import 'package:fitness_care_bagerhat/core/widgets/gym_bottom_sheet.dart';
-import 'package:fitness_care_bagerhat/features/admin/plans/widgets/plan_form.dart';
 
 class PlansListScreen extends ConsumerWidget {
   const PlansListScreen({super.key});
@@ -42,12 +42,13 @@ class PlansListScreen extends ConsumerWidget {
           : state.error != null
               ? GymErrorState(
                   message: state.error!.message,
-                  onRetry: () => ref.read(plansControllerProvider.notifier).load(),
+                  onRetry: () =>
+                      ref.read(plansControllerProvider.notifier).load(),
                 )
               : state.plans.isEmpty
                   ? GymEmptyState(
-                      message: 'No plans created yet.',
-                      animationPath: 'assets/animations/empty_plans.json',
+                      message: 'No plans yet. Tap + to create the first one.',
+                      animationPath: 'assets/animations/empty_members.json',
                       actionLabel: 'Create Plan',
                       onAction: () => _showPlanForm(context),
                     )
@@ -60,7 +61,8 @@ class PlansListScreen extends ConsumerWidget {
                         final plan = state.plans[index];
                         return _PlanCard(
                           plan: plan,
-                          onTap: () => _showPlanForm(context, plan: plan),
+                          onEdit: () => _showPlanForm(context, plan: plan),
+                          onDelete: () => _confirmDelete(context, ref, plan),
                         );
                       },
                     ),
@@ -68,23 +70,66 @@ class PlansListScreen extends ConsumerWidget {
   }
 
   void _showPlanForm(BuildContext context, {Plan? plan}) {
-    GymBottomSheet.show(
+    GymBottomSheet.show<void>(
       context: context,
       title: plan == null ? 'New Plan' : 'Edit Plan',
       child: PlanForm(plan: plan),
     );
   }
+
+  void _confirmDelete(BuildContext context, WidgetRef ref, Plan plan) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Plan'),
+        content: Text(
+          'Delete "${plan.name}"? This cannot be undone.\n\n'
+          'Plans that are linked to active subscriptions cannot be deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final error = await ref
+                  .read(plansControllerProvider.notifier)
+                  .deletePlan(plan.id);
+              if (error != null && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(error),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              }
+            },
+            child: const Text('Delete',
+                style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PlanCard extends StatelessWidget {
-  const _PlanCard({required this.plan, required this.onTap});
+  const _PlanCard({
+    required this.plan,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
   final Plan plan;
-  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     return GymCard(
-      onTap: onTap,
+      onTap: onEdit,
       padding: AppSpacing.paddingAll16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,25 +137,29 @@ class _PlanCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  plan.name,
-                  style: AppText.titleLarge,
-                ),
+                child: Text(plan.name, style: AppText.titleLarge),
               ),
-              GymBadge.custom(
-                label: 'Standard',
-                color: AppColors.success,
+              GymBadge.custom(label: 'Standard', color: AppColors.success),
+              const SizedBox(width: AppSpacing.s8),
+              // Delete button
+              GestureDetector(
+                onTap: onDelete,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.08),
+                    borderRadius: AppSpacing.r8,
+                  ),
+                  child: Icon(
+                    PhosphorIcons.trash(),
+                    size: 16,
+                    color: AppColors.error,
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.s4),
-          Text(
-            'Duration: ${plan.durationDays} days',
-            style: AppText.bodyMedium.copyWith(color: AppColors.textSecondary),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: AppSpacing.s16),
+          const SizedBox(height: AppSpacing.s8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -119,8 +168,9 @@ class _PlanCard extends StatelessWidget {
                 children: [
                   Text('Price', style: AppText.labelSmall),
                   Text(
-                    '৳ ${plan.defaultPrice}',
-                    style: AppText.titleMedium.copyWith(color: AppColors.primary),
+                    plan.defaultPrice.toBDT(),
+                    style:
+                        AppText.titleMedium.copyWith(color: AppColors.primary),
                   ),
                 ],
               ),
@@ -129,7 +179,7 @@ class _PlanCard extends StatelessWidget {
                 children: [
                   Text('Duration', style: AppText.labelSmall),
                   Text(
-                    '${plan.durationDays} Days',
+                    '${plan.durationDays} days',
                     style: AppText.titleMedium,
                   ),
                 ],

@@ -50,6 +50,8 @@ class StatCard extends StatelessWidget {
           Text(
             label,
             style: AppText.labelSmall.copyWith(color: AppColors.textSecondary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

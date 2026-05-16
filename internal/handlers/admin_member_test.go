@@ -24,16 +24,19 @@ import (
 // ── Fake service ──────────────────────────────────────────────────────────────
 
 type fakeMemberSvc struct {
-	createResult *services.CreateMemberResult
-	createErr    error
-	getResult    *models.Member
-	getErr       error
-	listResult   []*models.Member
-	listTotal    int64
-	listErr      error
-	updateResult *models.Member
-	updateErr    error
-	statusErr    error
+	createResult      *services.CreateMemberResult
+	createErr         error
+	getResult         *models.Member
+	getErr            error
+	listResult        []*models.Member
+	listTotal         int64
+	listErr           error
+	updateResult      *models.Member
+	updateErr         error
+	statusErr         error
+	resetResult       *services.ResetPasswordResult
+	resetErr          error
+	deleteErr         error
 }
 
 func (f *fakeMemberSvc) CreateMember(_ context.Context, _ services.CreateMemberRequest) (*services.CreateMemberResult, error) {
@@ -54,6 +57,12 @@ func (f *fakeMemberSvc) UpdateMember(_ context.Context, _ uuid.UUID, _ services.
 func (f *fakeMemberSvc) UpdateMemberStatus(_ context.Context, _ uuid.UUID, _ string) error {
 	return f.statusErr
 }
+func (f *fakeMemberSvc) ResetMemberPassword(_ context.Context, _ uuid.UUID) (*services.ResetPasswordResult, error) {
+	return f.resetResult, f.resetErr
+}
+func (f *fakeMemberSvc) DeleteMember(_ context.Context, _ uuid.UUID) error {
+	return f.deleteErr
+}
 
 // ── Test app factory ──────────────────────────────────────────────────────────
 
@@ -68,6 +77,8 @@ func newTestApp(svc *fakeMemberSvc) *fiber.App {
 	app.Get("/admin/members/:id", h.GetMember)
 	app.Patch("/admin/members/:id", h.UpdateMember)
 	app.Patch("/admin/members/:id/status", h.UpdateMemberStatus)
+	app.Post("/admin/members/:id/password/reset", h.ResetMemberPassword)
+	app.Delete("/admin/members/:id", h.DeleteMember)
 	return app
 }
 

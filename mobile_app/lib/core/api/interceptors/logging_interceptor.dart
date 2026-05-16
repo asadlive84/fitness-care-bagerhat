@@ -1,21 +1,22 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
-/// Logs HTTP requests and responses in debug mode only.
+/// Logs HTTP requests and responses for debugging.
 ///
 /// Logs:
-/// - Request method, URL, headers (without auth token)
-/// - Response status code and body preview (truncated at 500 chars)
+/// - Request method, URL, headers
+/// - Full response body
 /// - Errors with status code and message
 class LoggingInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (kDebugMode) {
-      debugPrint('──────────────────────────────────────');
-      debugPrint('→ ${options.method} ${options.uri}');
+      print('🚀 [API REQUEST] ${options.method} ${options.uri}');
+      print('🚀 [HEADERS] ${options.headers}');
       if (options.data != null) {
-        debugPrint('→ Body: ${_truncate(options.data.toString())}');
+        print('🚀 [BODY] ${options.data}');
       }
+      print('──────────────────────────────────────');
     }
     handler.next(options);
   }
@@ -26,9 +27,9 @@ class LoggingInterceptor extends Interceptor {
     ResponseInterceptorHandler handler,
   ) {
     if (kDebugMode) {
-      debugPrint('← ${response.statusCode} ${response.requestOptions.uri}');
-      debugPrint('← Data: ${_truncate(response.data.toString())}');
-      debugPrint('──────────────────────────────────────');
+      print('✅ [API RESPONSE] ${response.statusCode} ${response.requestOptions.uri}');
+      print('✅ [DATA] ${response.data}');
+      print('──────────────────────────────────────');
     }
     handler.next(response);
   }
@@ -36,15 +37,13 @@ class LoggingInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (kDebugMode) {
-      debugPrint('✖ ${err.response?.statusCode} ${err.requestOptions.uri}');
-      debugPrint('✖ ${err.message}');
-      debugPrint('──────────────────────────────────────');
+      print('❌ [API ERROR] ${err.response?.statusCode} ${err.requestOptions.uri}');
+      print('❌ [MESSAGE] ${err.message}');
+      if (err.response?.data != null) {
+        print('❌ [ERROR DATA] ${err.response?.data}');
+      }
+      print('──────────────────────────────────────');
     }
     handler.next(err);
-  }
-
-  String _truncate(String text, [int maxLength = 500]) {
-    if (text.length <= maxLength) return text;
-    return '${text.substring(0, maxLength)}…';
   }
 }

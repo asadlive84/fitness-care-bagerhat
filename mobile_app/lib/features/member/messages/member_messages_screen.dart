@@ -1,7 +1,6 @@
 import 'package:fitness_care_bagerhat/app/theme/app_colors.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_spacing.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
-import 'package:fitness_care_bagerhat/core/auth/auth_provider.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_error_state.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_shimmer.dart';
 import 'package:fitness_care_bagerhat/features/member/messages/chat_controller.dart';
@@ -41,7 +40,6 @@ class _MemberMessagesScreenState extends ConsumerState<MemberMessagesScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(chatControllerProvider);
-    final userId = ref.watch(authProvider).value?.userId;
 
     return Scaffold(
       appBar: AppBar(
@@ -164,7 +162,7 @@ class _LoadingState extends StatelessWidget {
       itemBuilder: (context, index) => Padding(
         padding: const EdgeInsets.only(bottom: AppSpacing.s16),
         child: Row(
-          mainAxisAlignment: index % 2 == 0 ? MainAxisAlignment.end : MainAxisAlignment.start,
+          mainAxisAlignment: index.isEven ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             GymShimmer.card(
               height: 60,

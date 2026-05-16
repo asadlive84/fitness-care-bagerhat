@@ -1,24 +1,231 @@
+// ignore_for_file: invalid_annotation_target
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'member.freezed.dart';
 part 'member.g.dart';
 
-@freezed
-class Member with _$Member {
-  const factory Member({
-    required String id,
-    required String name,
-    required String phone,
-    @Default('active') String status,
-    @JsonKey(name: 'join_date') DateTime? joinDate,
-    @JsonKey(name: 'current_weight') double? currentWeight,
-    @JsonKey(name: 'must_change_password') @Default(false) bool mustChangePassword,
-    MemberSubscription? activeSubscription,
-    String? imageUrl,
-  }) = _Member;
+// ── Blood group options ───────────────────────────────────────────────────────
+const kBloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
-  factory Member.fromJson(Map<String, dynamic> json) => _$MemberFromJson(json);
+// ── Religion options ──────────────────────────────────────────────────────────
+const kReligions = ['Islam', 'Hinduism', 'Christianity', 'Buddhism', 'Others'];
+
+// ── Hobby options ─────────────────────────────────────────────────────────────
+const kHobbies = [
+  'Reading',
+  'Sports',
+  'Music',
+  'Cooking',
+  'Travel',
+  'Gardening',
+  'Gaming',
+  'Photography',
+  'Fitness',
+  'Art',
+  'Others',
+];
+
+// ── Member ────────────────────────────────────────────────────────────────────
+
+/// Domain model for a gym member.
+///
+/// Written as a plain class (no build_runner required) so new fields can be
+/// added without regenerating code. The freezed part files are kept as empty
+/// stubs to satisfy the `part` declarations.
+class Member {
+  const Member({
+    required this.id,
+    required this.name,
+    required this.phone,
+    this.status = 'active',
+    this.joinDate,
+    this.currentWeight,
+    this.heightCm,
+    this.dateOfBirth,
+    this.religion,
+    this.bloodGroup,
+    this.hobbies = const [],
+    this.presentAddress,
+    this.permanentAddress,
+    this.occupation,
+    this.nid,
+    this.emergencyPhone,
+    this.goal,
+    this.mustChangePassword = false,
+    this.activeSubscription,
+    this.imageUrl,
+  });
+
+  final String id;
+  final String name;
+  final String phone;
+  final String status;
+  final DateTime? joinDate;
+  final double? currentWeight;
+  final double? heightCm;
+  final DateTime? dateOfBirth;
+  final String? religion;
+  final String? bloodGroup;
+  final List<String> hobbies;
+  final String? presentAddress;
+  final String? permanentAddress;
+  final String? occupation;
+  final String? nid;
+  final String? emergencyPhone;
+  final String? goal;
+  final bool mustChangePassword;
+  final MemberSubscription? activeSubscription;
+  final String? imageUrl;
+
+  // ── Computed ────────────────────────────────────────────────────────────────
+
+  /// Body Mass Index — null when weight or height is unknown.
+  double? get bmi {
+    if (currentWeight == null || heightCm == null || heightCm! <= 0) return null;
+    final h = heightCm! / 100.0;
+    return currentWeight! / (h * h);
+  }
+
+  /// BMI category string.
+  String? get bmiCategory {
+    final b = bmi;
+    if (b == null) return null;
+    if (b < 18.5) return 'Underweight';
+    if (b < 25.0) return 'Normal';
+    if (b < 30.0) return 'Overweight';
+    return 'Obese';
+  }
+
+  // ── Serialisation ───────────────────────────────────────────────────────────
+
+  factory Member.fromJson(Map<String, dynamic> json) => Member(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        phone: json['phone'] as String,
+        status: json['status'] as String? ?? 'active',
+        joinDate: json['join_date'] == null
+            ? null
+            : DateTime.parse(json['join_date'] as String),
+        currentWeight: (json['current_weight'] as num?)?.toDouble(),
+        heightCm: (json['height_cm'] as num?)?.toDouble(),
+        dateOfBirth: json['date_of_birth'] == null
+            ? null
+            : DateTime.parse(json['date_of_birth'] as String),
+        religion: json['religion'] as String?,
+        bloodGroup: json['blood_group'] as String?,
+        hobbies: (json['hobbies'] as List<dynamic>?)
+                ?.map((e) => e as String)
+                .toList() ??
+            const [],
+        presentAddress: json['present_address'] as String?,
+        permanentAddress: json['permanent_address'] as String?,
+        occupation: json['occupation'] as String?,
+        nid: json['nid'] as String?,
+        emergencyPhone: json['emergency_phone'] as String?,
+        goal: json['goal'] as String?,
+        mustChangePassword: json['must_change_password'] as bool? ?? false,
+        activeSubscription: json['active_subscription'] == null
+            ? null
+            : MemberSubscription.fromJson(
+                json['active_subscription'] as Map<String, dynamic>,
+              ),
+        imageUrl: json['imageUrl'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'phone': phone,
+        'status': status,
+        'join_date': joinDate?.toIso8601String().split('T')[0],
+        'current_weight': currentWeight,
+        'height_cm': heightCm,
+        'date_of_birth': dateOfBirth?.toIso8601String().split('T')[0],
+        'religion': religion,
+        'blood_group': bloodGroup,
+        'hobbies': hobbies,
+        'present_address': presentAddress,
+        'permanent_address': permanentAddress,
+        'occupation': occupation,
+        'nid': nid,
+        'emergency_phone': emergencyPhone,
+        'goal': goal,
+        'must_change_password': mustChangePassword,
+        'active_subscription': activeSubscription?.toJson(),
+        'imageUrl': imageUrl,
+      };
+
+  // ── copyWith (sentinel pattern for nullable fields) ─────────────────────────
+
+  Member copyWith({
+    String? id,
+    String? name,
+    String? phone,
+    String? status,
+    Object? joinDate = _absent,
+    Object? currentWeight = _absent,
+    Object? heightCm = _absent,
+    Object? dateOfBirth = _absent,
+    Object? religion = _absent,
+    Object? bloodGroup = _absent,
+    List<String>? hobbies,
+    Object? presentAddress = _absent,
+    Object? permanentAddress = _absent,
+    Object? occupation = _absent,
+    Object? nid = _absent,
+    Object? emergencyPhone = _absent,
+    Object? goal = _absent,
+    bool? mustChangePassword,
+    Object? activeSubscription = _absent,
+    Object? imageUrl = _absent,
+  }) =>
+      Member(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        phone: phone ?? this.phone,
+        status: status ?? this.status,
+        joinDate: joinDate == _absent ? this.joinDate : joinDate as DateTime?,
+        currentWeight: currentWeight == _absent
+            ? this.currentWeight
+            : currentWeight as double?,
+        heightCm:
+            heightCm == _absent ? this.heightCm : heightCm as double?,
+        dateOfBirth: dateOfBirth == _absent
+            ? this.dateOfBirth
+            : dateOfBirth as DateTime?,
+        religion:
+            religion == _absent ? this.religion : religion as String?,
+        bloodGroup: bloodGroup == _absent
+            ? this.bloodGroup
+            : bloodGroup as String?,
+        hobbies: hobbies ?? this.hobbies,
+        presentAddress: presentAddress == _absent
+            ? this.presentAddress
+            : presentAddress as String?,
+        permanentAddress: permanentAddress == _absent
+            ? this.permanentAddress
+            : permanentAddress as String?,
+        occupation: occupation == _absent
+            ? this.occupation
+            : occupation as String?,
+        nid: nid == _absent ? this.nid : nid as String?,
+        emergencyPhone: emergencyPhone == _absent
+            ? this.emergencyPhone
+            : emergencyPhone as String?,
+        goal: goal == _absent ? this.goal : goal as String?,
+        mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+        activeSubscription: activeSubscription == _absent
+            ? this.activeSubscription
+            : activeSubscription as MemberSubscription?,
+        imageUrl:
+            imageUrl == _absent ? this.imageUrl : imageUrl as String?,
+      );
 }
+
+/// Sentinel — distinguishes "not passed" from "explicitly null" in [copyWith].
+const _absent = Object();
+
+// ── MemberSubscription ────────────────────────────────────────────────────────
 
 @freezed
 class MemberSubscription with _$MemberSubscription {

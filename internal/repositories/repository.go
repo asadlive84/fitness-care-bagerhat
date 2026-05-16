@@ -37,11 +37,21 @@ type MemberRepository interface {
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
 
 	// UpdatePassword stores a new bcrypt hash and clears must_change_password.
+	// Used when a member changes their own password.
 	UpdatePassword(ctx context.Context, id uuid.UUID, hash string) error
+
+	// ResetPasswordByAdmin stores a new bcrypt hash and SETS must_change_password
+	// to true, forcing the member to change on their next login.
+	ResetPasswordByAdmin(ctx context.Context, id uuid.UUID, hash string) error
 
 	// ListExpiringSoon returns active members whose active subscription ends
 	// within the given number of days.
 	ListExpiringSoon(ctx context.Context, days int) ([]*models.Member, error)
+
+	// Delete permanently removes a member and all their associated records
+	// (subscriptions, payments, logs, messages, notifications, FCM tokens)
+	// in a single atomic transaction.
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 // AdminRepository covers persistence for the single admin account.

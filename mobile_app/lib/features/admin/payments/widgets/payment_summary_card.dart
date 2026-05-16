@@ -1,8 +1,6 @@
 import 'package:fitness_care_bagerhat/app/theme/app_colors.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_spacing.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
-import 'package:fitness_care_bagerhat/core/extensions/datetime_ext.dart';
-import 'package:fitness_care_bagerhat/core/widgets/gym_card.dart';
 import 'package:fitness_care_bagerhat/features/admin/payments/payment.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';

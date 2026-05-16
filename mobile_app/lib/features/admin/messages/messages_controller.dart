@@ -9,11 +9,8 @@ part 'messages_controller.freezed.dart';
 @freezed
 class MessagesState with _$MessagesState {
   const factory MessagesState({
-    @Default([]) List<Message> history,
+    @Default([]) List<ConversationSummary> conversations,
     @Default(false) bool isLoading,
-    @Default(false) bool isLoadingMore,
-    @Default(1) int page,
-    @Default(false) bool hasMore,
     ApiException? error,
   }) = _MessagesState;
 }
@@ -29,31 +26,30 @@ class MessagesController extends StateNotifier<MessagesState> {
 
   Future<void> load({bool refresh = false}) async {
     if (refresh) {
-      state = state.copyWith(page: 1, history: [], isLoading: true, error: null);
-    } else if (state.isLoadingMore || (state.page > 1 && !state.hasMore)) {
-      return;
+      state = state.copyWith(conversations: [], isLoading: true, error: null);
     } else {
-      state = state.copyWith(
-        isLoading: state.page == 1,
-        isLoadingMore: state.page > 1,
-        error: null,
-      );
+      state = state.copyWith(isLoading: true, error: null);
     }
 
     try {
-      final response = await _repository.list(page: state.page);
-      final newMessages = response.data ?? [];
-      final hasMore = response.meta?.hasMore ?? false;
+      final response = await _repository.listConversations();
+      final conversations = response.data ?? [];
 
       state = state.copyWith(
         isLoading: false,
-        isLoadingMore: false,
-        history: refresh ? newMessages : [...state.history, ...newMessages],
-        hasMore: hasMore,
-        page: state.page + 1,
+        conversations: conversations,
       );
     } on ApiException catch (e) {
-      state = state.copyWith(isLoading: false, isLoadingMore: false, error: e);
+      state = state.copyWith(isLoading: false, error: e);
+    }
+  }
+
+  Future<void> broadcast(String content, String filter) async {
+    try {
+      await _repository.sendBroadcast(content: content, filter: filter);
+      await load(refresh: true);
+    } on ApiException catch (e) {
+      state = state.copyWith(error: e);
     }
   }
 }
