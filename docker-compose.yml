@@ -1,0 +1,92 @@
+version: "3.9"
+
+# ── One command to rule them all ──────────────────────────────────────────────
+#
+#   docker compose up --build
+#
+# Start order:
+#   1. postgres  (waits until pg_isready)
+#   2. redis     (waits until redis-cli ping)
+#   3. migrate   (runs all pending migrations, then exits 0)
+#   4. app       (starts only after migrate completes successfully)
+#
+# On subsequent runs migrations are already applied — migrate exits 0 instantly.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: fitnesscare_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     gym
+      POSTGRES_PASSWORD: gym_secret
+      POSTGRES_DB:       fitnesscare
+    ports:
+      - "5433:5432"   # 5432 may be taken by another project; app uses internal network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:     ["CMD-SHELL", "pg_isready -U gym -d fitnesscare"]
+      interval: 5s
+      timeout:  5s
+      retries:  10
+
+  # ── Redis ─────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: fitnesscare_redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    ports:
+      - "6380:6379"   # 6379 may be taken by another project; app uses internal network
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test:     ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout:  5s
+      retries:  10
+
+  # ── Database Migrations ───────────────────────────────────────────────────────
+  migrate:
+    image: migrate/migrate:v4.18.1
+    container_name: fitnesscare_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://gym:gym_secret@postgres:5432/fitnesscare?sslmode=disable"
+      - "up"
+    restart: on-failure   # retry if postgres wasn't ready yet
+
+  # ── Application ───────────────────────────────────────────────────────────────
+  app:
+    build:
+      context:    .
+      dockerfile: Dockerfile
+    container_name: fitnesscare_app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_ENV:      production
+      DATABASE_DSN: postgres://gym:gym_secret@postgres:5432/fitnesscare?sslmode=disable
+      REDIS_ADDR:   redis:6379
+    ports:
+      - "9000:9000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully   # wait for migrations to finish
+
+volumes:
+  postgres_data:
+  redis_data:

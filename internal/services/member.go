@@ -1,0 +1,178 @@
+package services
+
+import (
+	"context"
+	"crypto/rand"
+	"errors"
+	"fmt"
+	"math/big"
+	"time"
+
+	"github.com/asadlive84/fitness-care-bagerhat/internal/models"
+	"github.com/asadlive84/fitness-care-bagerhat/internal/repositories"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
+)
+
+// CreateMemberRequest carries validated input for member creation.
+type CreateMemberRequest struct {
+	Name          string
+	Phone         string
+	Goal          *string
+	JoinDate      time.Time
+	CurrentWeight *float64
+}
+
+// CreateMemberResult bundles the new member with its one-time temp password.
+// The plaintext password is only returned here — admin must record it before
+// sharing with the member.
+type CreateMemberResult struct {
+	Member       *models.Member `json:"member"`
+	TempPassword string         `json:"temp_password"`
+}
+
+// UpdateMemberRequest carries validated profile fields for member update.
+type UpdateMemberRequest struct {
+	Name          string
+	Phone         string
+	Goal          *string
+	CurrentWeight *float64
+}
+
+// MemberService handles member CRUD business logic.
+type MemberService struct {
+	members repositories.MemberRepository
+}
+
+// NewMemberService constructs a MemberService.
+func NewMemberService(members repositories.MemberRepository) *MemberService {
+	return &MemberService{members: members}
+}
+
+// CreateMember creates a new member with a cryptographically random temp password.
+func (s *MemberService) CreateMember(ctx context.Context, req CreateMemberRequest) (*CreateMemberResult, error) {
+	tempPass, err := generateTempPassword()
+	if err != nil {
+		return nil, fmt.Errorf("generate temp password: %w", err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(tempPass), 12)
+	if err != nil {
+		return nil, fmt.Errorf("hash temp password: %w", err)
+	}
+
+	joinDate := req.JoinDate
+	if joinDate.IsZero() {
+		joinDate = time.Now()
+	}
+
+	member := &models.Member{
+		ID:                 uuid.New(),
+		Name:               req.Name,
+		Phone:              req.Phone,
+		Goal:               req.Goal,
+		JoinDate:           joinDate,
+		CurrentWeight:      req.CurrentWeight,
+		Status:             "active",
+		MustChangePassword: true,
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
+	}
+
+	if err := s.members.Create(ctx, member, string(hash)); err != nil {
+		if isConflict(err) {
+			return nil, fmt.Errorf("%w: phone number already registered", ErrConflict)
+		}
+		return nil, fmt.Errorf("create member: %w", err)
+	}
+
+	return &CreateMemberResult{Member: member, TempPassword: tempPass}, nil
+}
+
+// GetMember returns a single member by ID.
+func (s *MemberService) GetMember(ctx context.Context, id uuid.UUID) (*models.Member, error) {
+	m, err := s.members.GetByID(ctx, id)
+	if err != nil {
+		if isNotFound(err) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get member: %w", err)
+	}
+	return m, nil
+}
+
+// ListMembers returns a paginated, filtered member list and the total count.
+func (s *MemberService) ListMembers(ctx context.Context, f models.MemberFilter) ([]*models.Member, int64, error) {
+	members, total, err := s.members.List(ctx, f)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list members: %w", err)
+	}
+	return members, total, nil
+}
+
+// ListExpiringSoon returns active members whose subscription ends within
+// nudgeDays days. The nudgeDays value will come from settings in Step 10;
+// for now it defaults to 7.
+func (s *MemberService) ListExpiringSoon(ctx context.Context) ([]*models.Member, error) {
+	const nudgeDays = 7
+	members, err := s.members.ListExpiringSoon(ctx, nudgeDays)
+	if err != nil {
+		return nil, fmt.Errorf("list expiring soon: %w", err)
+	}
+	return members, nil
+}
+
+// UpdateMember saves profile changes and returns the updated member.
+func (s *MemberService) UpdateMember(ctx context.Context, id uuid.UUID, req UpdateMemberRequest) (*models.Member, error) {
+	existing, err := s.members.GetByID(ctx, id)
+	if err != nil {
+		if isNotFound(err) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("fetch member for update: %w", err)
+	}
+
+	existing.Name = req.Name
+	existing.Phone = req.Phone
+	existing.Goal = req.Goal
+	existing.CurrentWeight = req.CurrentWeight
+
+	if err := s.members.Update(ctx, existing); err != nil {
+		if isConflict(err) {
+			return nil, fmt.Errorf("%w: phone number already registered", ErrConflict)
+		}
+		return nil, fmt.Errorf("update member: %w", err)
+	}
+	return existing, nil
+}
+
+// UpdateMemberStatus sets a member's active/inactive status.
+func (s *MemberService) UpdateMemberStatus(ctx context.Context, id uuid.UUID, status string) error {
+	if err := s.members.UpdateStatus(ctx, id, status); err != nil {
+		if isNotFound(err) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("update member status: %w", err)
+	}
+	return nil
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+// generateTempPassword returns an 8-character cryptographically random string.
+// Characters are chosen from an unambiguous alphabet (no 0/O, 1/I/l).
+func generateTempPassword() (string, error) {
+	const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"
+	b := make([]byte, 8)
+	for i := range b {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(alphabet))))
+		if err != nil {
+			return "", err
+		}
+		b[i] = alphabet[n.Int64()]
+	}
+	return string(b), nil
+}
+
+func isNotFound(err error) bool { return errors.Is(err, repositories.ErrNotFound) }
+func isConflict(err error) bool  { return errors.Is(err, repositories.ErrConflict) }

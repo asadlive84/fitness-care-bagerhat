@@ -1,0 +1,1227 @@
+basePath: /
+definitions:
+  handlers.adminLoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  handlers.assignPlanReq:
+    properties:
+      final_price:
+        description: optional; defaults to plan price
+        type: number
+      note:
+        type: string
+      plan_template_id:
+        type: string
+      start_date:
+        description: YYYY-MM-DD, optional
+        type: string
+    required:
+    - plan_template_id
+    type: object
+  handlers.broadcastReq:
+    properties:
+      broadcast_filter:
+        enum:
+        - all
+        - active
+        - expired
+        - expiring
+        type: string
+      content:
+        maxLength: 2000
+        minLength: 1
+        type: string
+    required:
+    - broadcast_filter
+    - content
+    type: object
+  handlers.changePasswordRequest:
+    properties:
+      current_password:
+        minLength: 6
+        type: string
+      new_password:
+        minLength: 8
+        type: string
+    required:
+    - current_password
+    - new_password
+    type: object
+  handlers.createMemberReq:
+    properties:
+      current_weight:
+        type: number
+      goal:
+        type: string
+      join_date:
+        description: optional, YYYY-MM-DD
+        type: string
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      phone:
+        maxLength: 15
+        minLength: 10
+        type: string
+    required:
+    - name
+    - phone
+    type: object
+  handlers.createPlanReq:
+    properties:
+      default_price:
+        minimum: 0
+        type: number
+      duration_days:
+        maximum: 3650
+        minimum: 1
+        type: integer
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+    required:
+    - default_price
+    - duration_days
+    - name
+    type: object
+  handlers.directMsgReq:
+    properties:
+      content:
+        maxLength: 2000
+        minLength: 1
+        type: string
+      member_id:
+        type: string
+    required:
+    - content
+    - member_id
+    type: object
+  handlers.logContentReq:
+    properties:
+      content:
+        maxLength: 2000
+        minLength: 1
+        type: string
+      logged_at:
+        description: optional RFC3339
+        type: string
+    required:
+    - content
+    type: object
+  handlers.logWeightReq:
+    properties:
+      logged_at:
+        description: optional RFC3339
+        type: string
+      weight_kg:
+        maximum: 500
+        type: number
+    required:
+    - weight_kg
+    type: object
+  handlers.memberLoginRequest:
+    properties:
+      password:
+        minLength: 6
+        type: string
+      phone:
+        maxLength: 15
+        minLength: 10
+        type: string
+    required:
+    - password
+    - phone
+    type: object
+  handlers.muteNotificationsReq:
+    properties:
+      muted:
+        type: boolean
+      until:
+        description: optional RFC3339 timestamp
+        type: string
+    type: object
+  handlers.recordPaymentReq:
+    properties:
+      amount:
+        type: number
+      member_id:
+        type: string
+      method:
+        enum:
+        - Cash
+        - bKash
+        - Nagad
+        - Card
+        type: string
+      paid_at:
+        description: optional RFC3339 timestamp
+        type: string
+      subscription_id:
+        type: string
+    required:
+    - amount
+    - member_id
+    - method
+    - subscription_id
+    type: object
+  handlers.refreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  handlers.registerFCMTokenReq:
+    properties:
+      device_info:
+        type: string
+      token:
+        minLength: 10
+        type: string
+    required:
+    - token
+    type: object
+  handlers.sendMessageReq:
+    properties:
+      content:
+        maxLength: 2000
+        minLength: 1
+        type: string
+    required:
+    - content
+    type: object
+  handlers.updateActiveReq:
+    properties:
+      end_date:
+        type: string
+      final_price:
+        minimum: 0
+        type: number
+      note:
+        type: string
+    required:
+    - end_date
+    - final_price
+    type: object
+  handlers.updateMemberReq:
+    properties:
+      current_weight:
+        type: number
+      goal:
+        type: string
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      phone:
+        maxLength: 15
+        minLength: 10
+        type: string
+    required:
+    - name
+    - phone
+    type: object
+  handlers.updatePlanReq:
+    properties:
+      default_price:
+        minimum: 0
+        type: number
+      duration_days:
+        maximum: 3650
+        minimum: 1
+        type: integer
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+    required:
+    - default_price
+    - duration_days
+    - name
+    type: object
+  handlers.updateProfileReq:
+    properties:
+      current_weight:
+        type: number
+      goal:
+        type: string
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+    required:
+    - name
+    type: object
+  handlers.updateStatusReq:
+    properties:
+      status:
+        enum:
+        - active
+        - inactive
+        type: string
+    required:
+    - status
+    type: object
+  handlers.upsertSettingReq:
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: 'Production-grade REST API for a single-gym management system in Bagerhat,
+    Bangladesh. Two roles: Admin (gym owner) and Member (gym customer).'
+  title: Fitness Care Bagerhat API
+  version: 1.0.0
+paths:
+  /api/v1/admin/members:
+    get:
+      parameters:
+      - description: Page (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Limit (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: active|inactive
+        in: query
+        name: status
+        type: string
+      - description: Name or phone search
+        in: query
+        name: search
+        type: string
+      - description: Only members with expiring subscription
+        in: query
+        name: expiring_soon
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List members (paginated, filterable)
+      tags:
+      - admin/members
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Member details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.createMemberReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new member
+      tags:
+      - admin/members
+  /api/v1/admin/members/{id}:
+    get:
+      parameters:
+      - description: Member UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a member by ID
+      tags:
+      - admin/members
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Member UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.updateMemberReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update member profile
+      tags:
+      - admin/members
+  /api/v1/admin/members/{id}/payments:
+    get:
+      parameters:
+      - description: Member UUID
+        in: path
+        name: id
+        type: string
+      - description: From date (YYYY-MM-DD)
+        in: query
+        name: from
+        type: string
+      - description: To date (YYYY-MM-DD)
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List payments for a member (with optional date range)
+      tags:
+      - admin/payments
+  /api/v1/admin/members/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Member UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New status
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.updateStatusReq'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Set member active/inactive
+      tags:
+      - admin/members
+  /api/v1/admin/members/{id}/subscriptions:
+    get:
+      parameters:
+      - description: Member UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List all subscriptions for a member
+      tags:
+      - admin/subscriptions
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Member UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Subscription details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.assignPlanReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Assign a plan to a member
+      tags:
+      - admin/subscriptions
+  /api/v1/admin/members/{id}/subscriptions/active:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Member UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.updateActiveReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update the active subscription (price, end_date, note)
+      tags:
+      - admin/subscriptions
+  /api/v1/admin/messages/broadcast:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Broadcast details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.broadcastReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Send broadcast message to filtered members
+      tags:
+      - admin/messages
+  /api/v1/admin/messages/conversations:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List all member conversations (most recent first)
+      tags:
+      - admin/messages
+  /api/v1/admin/messages/conversations/{member_id}:
+    get:
+      parameters:
+      - description: Member UUID
+        in: path
+        name: member_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get full conversation with a member (marks their messages read)
+      tags:
+      - admin/messages
+  /api/v1/admin/messages/direct:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Message details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.directMsgReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Send direct message to a member
+      tags:
+      - admin/messages
+  /api/v1/admin/payments:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Payment details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.recordPaymentReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Record a payment
+      tags:
+      - admin/payments
+  /api/v1/admin/payments/summary:
+    get:
+      parameters:
+      - description: Month (YYYY-MM)
+        in: query
+        name: month
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Monthly payment summary (total revenue)
+      tags:
+      - admin/payments
+  /api/v1/admin/plans:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List all plan templates
+      tags:
+      - admin/plans
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Plan details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.createPlanReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a plan template
+      tags:
+      - admin/plans
+  /api/v1/admin/plans/{id}:
+    delete:
+      parameters:
+      - description: Plan UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a plan template
+      tags:
+      - admin/plans
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Plan UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.updatePlanReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a plan template
+      tags:
+      - admin/plans
+  /api/v1/admin/settings:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get all settings
+      tags:
+      - admin/settings
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Setting key + value
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.upsertSettingReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create or update a setting
+      tags:
+      - admin/settings
+  /api/v1/auth/admin/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.adminLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Admin login
+      tags:
+      - auth
+  /api/v1/auth/change-password:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Passwords
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.changePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Change member password
+      tags:
+      - auth
+  /api/v1/auth/member/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.memberLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Member login
+      tags:
+      - auth
+  /api/v1/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Refresh token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.refreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Refresh access token
+      tags:
+      - auth
+  /api/v1/member/diet-logs:
+    get:
+      parameters:
+      - description: Page (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Limit (default 20)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List diet logs (paginated)
+      tags:
+      - member/logs
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Diet entry
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.logContentReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Log a diet entry
+      tags:
+      - member/logs
+  /api/v1/member/fcm-token:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Token details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.registerFCMTokenReq'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Register or refresh a device FCM token
+      tags:
+      - member/notifications
+  /api/v1/member/messages:
+    get:
+      parameters:
+      - description: Page (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Limit (default 20)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get member messages (direct + broadcasts)
+      tags:
+      - member/messages
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Message content
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.sendMessageReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Send message to admin
+      tags:
+      - member/messages
+  /api/v1/member/notifications/mute:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Mute preference
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.muteNotificationsReq'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Mute or unmute push notifications
+      tags:
+      - member/notifications
+  /api/v1/member/payments:
+    get:
+      parameters:
+      - description: From date (YYYY-MM-DD)
+        in: query
+        name: from
+        type: string
+      - description: To date (YYYY-MM-DD)
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get member's own payment history
+      tags:
+      - member
+  /api/v1/member/profile:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get member profile
+      tags:
+      - member
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.updateProfileReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update member profile (name, goal, current weight)
+      tags:
+      - member
+  /api/v1/member/subscription:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get member's current active subscription
+      tags:
+      - member
+  /api/v1/member/weight-logs:
+    get:
+      parameters:
+      - description: From date (YYYY-MM-DD)
+        in: query
+        name: from
+        type: string
+      - description: To date (YYYY-MM-DD)
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List weight logs (optional date range)
+      tags:
+      - member/logs
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Weight entry
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.logWeightReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Log current weight
+      tags:
+      - member/logs
+  /api/v1/member/workout-logs:
+    get:
+      parameters:
+      - description: Page (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Limit (default 20)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List workout logs (paginated)
+      tags:
+      - member/logs
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Workout entry
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.logContentReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Log a workout session
+      tags:
+      - member/logs
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: 'Enter the token with the Bearer prefix: "Bearer {token}"'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
