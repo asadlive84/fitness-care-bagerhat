@@ -1,3 +1,4 @@
+import 'package:fitness_care_bagerhat/app/theme/app_colors.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_spacing.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_button.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_text_field.dart';
@@ -28,6 +29,7 @@ class _UpdateSubscriptionSheetState
     extends ConsumerState<UpdateSubscriptionSheet> {
   late TextEditingController _priceController;
   late TextEditingController _noteController;
+  late TextEditingController _durationController;
   late DateTime _endDate;
   bool _isLoading = false;
 
@@ -39,13 +41,26 @@ class _UpdateSubscriptionSheetState
         text: widget.subscription.finalPrice.toStringAsFixed(0));
     _noteController =
         TextEditingController(text: widget.subscription.note ?? '');
+    
+    final days = _endDate.difference(widget.subscription.startDate).inDays;
+    _durationController = TextEditingController(text: days.toString());
   }
 
   @override
   void dispose() {
     _priceController.dispose();
     _noteController.dispose();
+    _durationController.dispose();
     super.dispose();
+  }
+
+  void _onDurationChanged(String value) {
+    final days = int.tryParse(value);
+    if (days != null) {
+      setState(() {
+        _endDate = widget.subscription.startDate.add(Duration(days: days));
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -78,50 +93,77 @@ class _UpdateSubscriptionSheetState
   Widget build(BuildContext context) {
     final fmt = DateFormat('dd MMM yyyy');
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // End date picker
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(PhosphorIcons.calendar(), color: Colors.green),
-          title: const Text('End Date'),
-          subtitle: Text(fmt.format(_endDate)),
-          trailing: TextButton(
-            onPressed: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: _endDate,
-                firstDate: DateTime.now(),
-                lastDate: DateTime.now().add(const Duration(days: 3650)),
-              );
-              if (picked != null) setState(() => _endDate = picked);
-            },
-            child: const Text('Change'),
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // End date picker
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(PhosphorIcons.calendar(), color: AppColors.success),
+            title: const Text('End Date'),
+            subtitle: Text(fmt.format(_endDate)),
+            trailing: TextButton(
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _endDate,
+                  firstDate: widget.subscription.startDate,
+                  lastDate: DateTime.now().add(const Duration(days: 3650)),
+                );
+                if (picked != null) {
+                  setState(() {
+                    _endDate = picked;
+                    final days = _endDate.difference(widget.subscription.startDate).inDays;
+                    _durationController.text = days.toString();
+                  });
+                }
+              },
+              child: const Text('Change'),
+            ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.s20),
-        GymTextField(
-          label: 'Final Price (৳)',
-          hint: '1500',
-          controller: _priceController,
-          keyboardType: TextInputType.number,
-          prefixIcon: Icon(PhosphorIcons.money()),
-        ),
-        const SizedBox(height: AppSpacing.s20),
-        GymTextField(
-          label: 'Note (Optional)',
-          hint: 'e.g. Extended by 1 month',
-          controller: _noteController,
-          maxLines: 2,
-        ),
-        const SizedBox(height: AppSpacing.s40),
-        GymButton.primary(
-          label: 'Save Changes',
-          isLoading: _isLoading,
-          onPressed: _submit,
-        ),
-      ],
+          const SizedBox(height: AppSpacing.s20),
+          
+          Row(
+            children: [
+              Expanded(
+                child: GymTextField(
+                  label: 'Total Duration (Days)',
+                  hint: '30',
+                  controller: _durationController,
+                  keyboardType: TextInputType.number,
+                  prefixIcon: Icon(PhosphorIcons.clock()),
+                  onChanged: _onDurationChanged,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.s16),
+              Expanded(
+                child: GymTextField(
+                  label: 'Final Price (৳)',
+                  hint: '1500',
+                  controller: _priceController,
+                  keyboardType: TextInputType.number,
+                  prefixIcon: Icon(PhosphorIcons.money()),
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: AppSpacing.s20),
+          GymTextField(
+            label: 'Note (Optional)',
+            hint: 'e.g. Extended by 1 month',
+            controller: _noteController,
+            maxLines: 2,
+          ),
+          const SizedBox(height: AppSpacing.s40),
+          GymButton.primary(
+            label: 'Save Changes',
+            isLoading: _isLoading,
+            onPressed: _submit,
+          ),
+        ],
+      ),
     );
   }
 }

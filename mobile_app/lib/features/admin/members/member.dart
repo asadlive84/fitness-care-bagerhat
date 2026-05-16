@@ -54,6 +54,7 @@ class Member {
     this.mustChangePassword = false,
     this.activeSubscription,
     this.imageUrl,
+    this.gender,
   });
 
   final String id;
@@ -76,6 +77,7 @@ class Member {
   final bool mustChangePassword;
   final MemberSubscription? activeSubscription;
   final String? imageUrl;
+  final String? gender;
 
   // ── Computed ────────────────────────────────────────────────────────────────
 
@@ -94,6 +96,54 @@ class Member {
     if (b < 25.0) return 'Normal';
     if (b < 30.0) return 'Overweight';
     return 'Obese';
+  }
+
+  /// Age in years — null when date of birth is unknown.
+  int? get age {
+    if (dateOfBirth == null) return null;
+    final now = DateTime.now();
+    int age = now.year - dateOfBirth!.year;
+    if (now.month < dateOfBirth!.month ||
+        (now.month == dateOfBirth!.month && now.day < dateOfBirth!.day)) {
+      age--;
+    }
+    return age;
+  }
+
+  /// Height in ft-in format (e.g. 5' 7").
+  String get heightDisplay {
+    if (heightCm == null || heightCm! <= 0) return '—';
+    final totalInches = heightCm! / 2.54;
+    final feet = (totalInches / 12).floor();
+    final inches = (totalInches % 12).round();
+    return "$feet' $inches\"";
+  }
+
+  /// Ideal weight range (BMI 18.5 - 25.0).
+  String get idealWeightRange {
+    if (heightCm == null || heightCm! <= 0) return '—';
+    final h = heightCm! / 100.0;
+    final min = 18.5 * (h * h);
+    final max = 24.9 * (h * h);
+    return '${min.toStringAsFixed(1)} - ${max.toStringAsFixed(1)} kg';
+  }
+
+  /// BMI Health Tip based on category.
+  String get bmiTip {
+    final cat = bmiCategory;
+    if (cat == 'Underweight') {
+      return 'Focus on nutrient-dense foods and strength training to build muscle.';
+    }
+    if (cat == 'Normal') {
+      return 'Great job! Maintain your healthy lifestyle with balanced nutrition.';
+    }
+    if (cat == 'Overweight') {
+      return 'Focus on a gradual calorie deficit and regular cardio to reach your goal.';
+    }
+    if (cat == 'Obese') {
+      return 'Consult with a trainer for a structured weight loss and cardio plan.';
+    }
+    return 'Track your weight and height to get personalized health tips.';
   }
 
   // ── Serialisation ───────────────────────────────────────────────────────────
@@ -130,6 +180,7 @@ class Member {
                 json['active_subscription'] as Map<String, dynamic>,
               ),
         imageUrl: json['imageUrl'] as String?,
+        gender: json['gender'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -153,6 +204,7 @@ class Member {
         'must_change_password': mustChangePassword,
         'active_subscription': activeSubscription?.toJson(),
         'imageUrl': imageUrl,
+        'gender': gender,
       };
 
   // ── copyWith (sentinel pattern for nullable fields) ─────────────────────────

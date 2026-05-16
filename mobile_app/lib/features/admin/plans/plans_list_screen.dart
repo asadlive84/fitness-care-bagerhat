@@ -139,6 +139,13 @@ class _PlanCard extends StatelessWidget {
               Expanded(
                 child: Text(plan.name, style: AppText.titleLarge),
               ),
+              if (plan.memberCount != null) ...[
+                GymBadge.custom(
+                  label: '${plan.memberCount} Members',
+                  color: AppColors.info,
+                ),
+                const SizedBox(width: AppSpacing.s8),
+              ],
               GymBadge.custom(label: 'Standard', color: AppColors.success),
               const SizedBox(width: AppSpacing.s8),
               // Delete button

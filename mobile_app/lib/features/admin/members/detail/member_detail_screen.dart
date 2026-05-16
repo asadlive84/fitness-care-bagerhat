@@ -48,6 +48,17 @@ final memberActiveSubProvider = FutureProvider.autoDispose
   }
 });
 
+/// Calculates the total paid amount for a specific subscription.
+final subscriptionTotalPaidProvider = FutureProvider.autoDispose
+    .family<double, (String memberId, String subscriptionId)>((ref, arg) async {
+  final response =
+      await ref.read(paymentRepositoryProvider).list(memberId: arg.$1);
+  final payments = response.data ?? [];
+  return payments
+      .where((p) => p.subscriptionId == arg.$2)
+      .fold<double>(0.0, (sum, p) => sum + p.amount);
+});
+
 /// ## MemberDetailScreen
 ///
 /// Admin view showing detailed information about a member.
@@ -333,6 +344,9 @@ class _Header extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final activeSubAsync = ref.watch(memberActiveSubProvider(member.id));
+    final activeSub = activeSubAsync.valueOrNull;
+
     return Padding(
       padding: AppSpacing.paddingAll24,
       child: Column(
@@ -363,21 +377,32 @@ class _Header extends ConsumerWidget {
                 child: GymButton.secondary(
                   label: 'Payment',
                   icon: Icon(PhosphorIcons.money()),
-                  onPressed: () => GymBottomSheet.show<bool?>(
-                    context: context,
-                    title: 'Record Payment',
-                    child: RecordPaymentSheet(
-                      memberId: member.id,
-                      memberName: member.name,
-                      subscriptionId: member.activeSubscription?.id ?? '',
-                    ),
-                  ).then((ok) {
-                    if (ok == true) {
-                      ref
-                          .read(memberDetailControllerProvider(screenId).notifier)
-                          .load();
+                  onPressed: () {
+                    if (activeSub == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please assign a plan before recording a payment.'),
+                        ),
+                      );
+                      return;
                     }
-                  }),
+                    GymBottomSheet.show<bool?>(
+                      context: context,
+                      title: 'Record Payment',
+                      child: RecordPaymentSheet(
+                        memberId: member.id,
+                        memberName: member.name,
+                        subscriptionId: activeSub.id,
+                      ),
+                    ).then((ok) {
+                      if (ok == true) {
+                        ref
+                            .read(memberDetailControllerProvider(screenId).notifier)
+                            .load();
+                        ref.invalidate(memberActiveSubProvider(member.id));
+                      }
+                    });
+                  },
                 ),
               ),
             ],
@@ -421,6 +446,7 @@ class _OverviewTab extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _SubscriptionCard(
+                      memberId: member.id,
                       subscription: activeSub,
                       onEdit: () => GymBottomSheet.show<bool?>(
                         context: context,
@@ -486,7 +512,7 @@ class _OverviewTab extends ConsumerWidget {
             _DetailRow(
               icon: PhosphorIcons.cake(),
               label: 'Date of Birth',
-              value: member.dateOfBirth!.toDisplay(),
+              value: '${member.dateOfBirth!.toDisplay()} (${member.age} years)',
             ),
           ],
           const Divider(height: AppSpacing.s32),
@@ -502,7 +528,7 @@ class _OverviewTab extends ConsumerWidget {
             _DetailRow(
               icon: PhosphorIcons.arrowsVertical(),
               label: 'Height',
-              value: '${member.heightCm!.toStringAsFixed(0)} cm',
+              value: member.heightDisplay,
             ),
           ],
           if (member.bmi != null) ...[
@@ -897,26 +923,34 @@ class _SubHistoryCard extends StatelessWidget {
   }
 }
 
-class _SubscriptionCard extends StatelessWidget {
-  const _SubscriptionCard({required this.subscription, this.onEdit});
+class _SubscriptionCard extends ConsumerWidget {
+  const _SubscriptionCard({
+    required this.memberId,
+    required this.subscription,
+    this.onEdit,
+  });
+
+  final String memberId;
   final MemberSubscription subscription;
   final VoidCallback? onEdit;
 
   @override
-  Widget build(BuildContext context) {
-    final total =
-        subscription.endDate.difference(subscription.startDate).inDays;
-    final used = DateTime.now().difference(subscription.startDate).inDays;
-    final progress = total > 0 ? (used / total).clamp(0.0, 1.0) : 0.0;
-    final daysLeft = subscription.endDate.difference(DateTime.now()).inDays;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final paidAsync = ref.watch(subscriptionTotalPaidProvider(
+      (memberId, subscription.id),
+    ));
+
+    final total = subscription.finalPrice;
+    final paid = paidAsync.valueOrNull ?? 0.0;
+    final due = total - paid;
+    final progress = total > 0 ? (paid / total).clamp(0.0, 1.0) : 0.0;
+    final isFullyPaid = due <= 0;
 
     return Container(
       width: double.infinity,
       padding: AppSpacing.paddingAll24,
       decoration: BoxDecoration(
-        gradient: daysLeft < 7
-            ? AppColors.gradientOrange
-            : AppColors.gradientGreen,
+        gradient: isFullyPaid ? AppColors.gradientGreen : AppColors.gradientOrange,
         borderRadius: AppSpacing.r24,
         boxShadow: AppShadows.cardShadow,
       ),
@@ -927,61 +961,79 @@ class _SubscriptionCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Active Subscription',
+                'Payment Status',
                 style: AppText.labelSmall
                     .copyWith(color: Colors.white.withValues(alpha: 0.8)),
               ),
-              Icon(PhosphorIcons.clipboardText(), color: Colors.white, size: 20),
+              Icon(PhosphorIcons.money(), color: Colors.white, size: 20),
             ],
           ),
           const SizedBox(height: AppSpacing.s4),
           Text(
-            'Started ${subscription.startDate.toDisplay()} · Ends ${subscription.endDate.toDisplay()}',
-            style: AppText.bodyMedium
-                .copyWith(color: Colors.white.withValues(alpha: 0.8)),
+            isFullyPaid ? 'Fully Paid' : 'Partial Payment Done',
+            style: AppText.titleLarge.copyWith(color: Colors.white),
           ),
           const SizedBox(height: AppSpacing.s20),
           LinearProgressIndicator(
-            value: progress.clamp(0, 1),
+            value: progress,
             backgroundColor: Colors.white.withValues(alpha: 0.2),
             valueColor: const AlwaysStoppedAnimation(Colors.white),
             borderRadius: AppSpacing.rFull,
-            minHeight: 8,
+            minHeight: 10,
           ),
+          const SizedBox(height: AppSpacing.s16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _CardAmount(label: 'Total', amount: total),
+              _CardAmount(label: 'Paid', amount: paid),
+              _CardAmount(label: 'Due', amount: due < 0 ? 0 : due),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.s20),
+          const Divider(color: Colors.white24),
           const SizedBox(height: AppSpacing.s12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '$daysLeft days left',
-                style: AppText.bodySmall
-                    .copyWith(color: Colors.white.withValues(alpha: 0.9)),
+                'Plan: ${subscription.startDate.toDisplay()} - ${subscription.endDate.toDisplay()}',
+                style: AppText.bodySmall.copyWith(color: Colors.white70),
               ),
               if (onEdit != null)
                 GestureDetector(
                   onTap: onEdit,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.s8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s12, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: AppSpacing.rFull,
                     ),
-                    child: Text(
-                      'Edit',
-                      style: AppText.labelSmall
-                          .copyWith(color: Colors.white),
-                    ),
+                    child: Text('Edit Plan', style: AppText.labelSmall.copyWith(color: Colors.white)),
                   ),
                 ),
-              Text(
-                subscription.finalPrice.toBDT(),
-                style: AppText.labelLarge.copyWith(color: Colors.white),
-              ),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CardAmount extends StatelessWidget {
+  const _CardAmount({required this.label, required this.amount});
+  final String label;
+  final double amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppText.labelSmall.copyWith(color: Colors.white70)),
+        const SizedBox(height: 2),
+        Text(amount.toBDT(), style: AppText.titleMedium.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+      ],
     );
   }
 }

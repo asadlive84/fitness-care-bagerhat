@@ -39,7 +39,8 @@ class _MemberFormState extends State<MemberForm> {
 
   // ── Physical ───────────────────────────────────────────────────────────────
   late final TextEditingController _weightCtrl;
-  late final TextEditingController _heightCtrl;
+  late final TextEditingController _heightFtCtrl;
+  late final TextEditingController _heightInCtrl;
   DateTime? _dateOfBirth;
   DateTime? _joinDate;
 
@@ -65,7 +66,17 @@ class _MemberFormState extends State<MemberForm> {
     _goalCtrl = TextEditingController(text: m?.goal ?? '');
     _emergencyPhoneCtrl = TextEditingController(text: m?.emergencyPhone ?? '');
     _weightCtrl = TextEditingController(text: m?.currentWeight?.toStringAsFixed(1) ?? '');
-    _heightCtrl = TextEditingController(text: m?.heightCm?.toStringAsFixed(1) ?? '');
+    
+    // Convert CM to Ft/In for initial value
+    if (m?.heightCm != null) {
+      final totalInches = m!.heightCm! / 2.54;
+      _heightFtCtrl = TextEditingController(text: (totalInches / 12).floor().toString());
+      _heightInCtrl = TextEditingController(text: (totalInches % 12).round().toString());
+    } else {
+      _heightFtCtrl = TextEditingController();
+      _heightInCtrl = TextEditingController();
+    }
+
     _nidCtrl = TextEditingController(text: m?.nid ?? '');
     _occupationCtrl = TextEditingController(text: m?.occupation ?? '');
     _presentAddressCtrl = TextEditingController(text: m?.presentAddress ?? '');
@@ -75,18 +86,30 @@ class _MemberFormState extends State<MemberForm> {
     _religion = m?.religion;
     _bloodGroup = m?.bloodGroup;
     _hobbies.addAll(m?.hobbies ?? []);
+
+    // Listen to height changes for BMI preview
+    _heightFtCtrl.addListener(() => setState(() {}));
+    _heightInCtrl.addListener(() => setState(() {}));
+    _weightCtrl.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     for (final c in [
       _nameCtrl, _phoneCtrl, _goalCtrl, _emergencyPhoneCtrl,
-      _weightCtrl, _heightCtrl, _nidCtrl, _occupationCtrl,
+      _weightCtrl, _heightFtCtrl, _heightInCtrl, _nidCtrl, _occupationCtrl,
       _presentAddressCtrl, _permanentAddressCtrl,
     ]) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  double? get _currentHeightCm {
+    final ft = int.tryParse(_heightFtCtrl.text.trim()) ?? 0;
+    final inch = int.tryParse(_heightInCtrl.text.trim()) ?? 0;
+    if (ft == 0 && inch == 0) return null;
+    return (ft * 30.48) + (inch * 2.54);
   }
 
   Future<void> _submit() async {
@@ -97,7 +120,7 @@ class _MemberFormState extends State<MemberForm> {
         phone: _phoneCtrl.text.trim(),
         goal: _goalCtrl.text.trim().isEmpty ? null : _goalCtrl.text.trim(),
         currentWeight: double.tryParse(_weightCtrl.text.trim()),
-        heightCm: double.tryParse(_heightCtrl.text.trim()),
+        heightCm: _currentHeightCm,
         joinDate: _joinDate,
         dateOfBirth: _dateOfBirth,
         religion: _religion,
@@ -193,8 +216,10 @@ class _MemberFormState extends State<MemberForm> {
           const SizedBox(height: AppSpacing.s16),
 
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
+                flex: 2,
                 child: GymTextField(
                   label: 'Weight (kg)',
                   hint: '72.5',
@@ -204,35 +229,63 @@ class _MemberFormState extends State<MemberForm> {
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return null;
                     final n = double.tryParse(v.trim());
-                    if (n == null || n <= 0 || n > 500) return 'Invalid weight';
+                    if (n == null || n <= 0 || n > 500) return 'Invalid';
                     return null;
                   },
                 ),
               ),
               const SizedBox(width: AppSpacing.s12),
               Expanded(
-                child: GymTextField(
-                  label: 'Height (cm)',
-                  hint: '170',
-                  controller: _heightCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  prefixIcon: Icon(PhosphorIcons.arrowsVertical()),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return null;
-                    final n = double.tryParse(v.trim());
-                    if (n == null || n <= 0 || n > 300) return 'Invalid height';
-                    return null;
-                  },
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Height', style: AppText.labelSmall),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GymTextField(
+                            hint: '5',
+                            controller: _heightFtCtrl,
+                            keyboardType: TextInputType.number,
+                            suffixText: 'ft',
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return null;
+                              final n = int.tryParse(v.trim());
+                              if (n == null || n < 0 || n > 9) return '!';
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: GymTextField(
+                            hint: '7',
+                            controller: _heightInCtrl,
+                            keyboardType: TextInputType.number,
+                            suffixText: 'in',
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return null;
+                              final n = int.tryParse(v.trim());
+                              if (n == null || n < 0 || n > 11) return '!';
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
 
           // BMI preview
-          if (_weightCtrl.text.isNotEmpty && _heightCtrl.text.isNotEmpty)
+          if (_weightCtrl.text.isNotEmpty && (_heightFtCtrl.text.isNotEmpty || _heightInCtrl.text.isNotEmpty))
             _BmiPreview(
               weight: double.tryParse(_weightCtrl.text),
-              heightCm: double.tryParse(_heightCtrl.text),
+              heightCm: _currentHeightCm,
             ),
 
           const SizedBox(height: AppSpacing.s16),

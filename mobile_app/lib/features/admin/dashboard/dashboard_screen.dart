@@ -3,12 +3,14 @@ import 'package:fitness_care_bagerhat/app/theme/app_spacing.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_error_state.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_shimmer.dart';
+import 'package:fitness_care_bagerhat/app/router/routes.dart';
 import 'package:fitness_care_bagerhat/features/admin/dashboard/dashboard_controller.dart';
 import 'package:fitness_care_bagerhat/features/admin/dashboard/dashboard_stats.dart';
 import 'package:fitness_care_bagerhat/features/admin/dashboard/widgets/revenue_chart.dart';
 import 'package:fitness_care_bagerhat/features/admin/dashboard/widgets/stat_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -68,18 +70,21 @@ class _Content extends StatelessWidget {
                 icon: PhosphorIcons.users(),
                 color: AppColors.primary,
                 trend: '+12%',
+                onTap: () => context.go(Routes.adminMembers),
               ),
               StatCard(
                 label: 'Active Plans',
                 value: stats.activeMembers.toString(),
                 icon: PhosphorIcons.clipboardText(),
                 color: AppColors.info,
+                onTap: () => context.go(Routes.adminPlans),
               ),
               StatCard(
                 label: 'Due Payments',
                 value: stats.pendingPayments.toString(),
                 icon: PhosphorIcons.warningCircle(),
                 color: AppColors.error,
+                onTap: () => context.go(Routes.adminPayments),
               ),
             ],
           ),
@@ -95,7 +100,19 @@ class _Content extends StatelessWidget {
             ),
             child: RevenueChart(data: stats.revenueChart),
           ),
-          const SizedBox(height: AppSpacing.s32),
+          const SizedBox(height: AppSpacing.s40),
+          
+          GestureDetector(
+            onTap: () => context.push(Routes.developer),
+            child: Text(
+              'Developed by Asaduzzaman Sohel',
+              style: AppText.labelSmall.copyWith(
+                color: AppColors.textSecondary.withValues(alpha: 0.5),
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.s20),
         ],
       ),
     );

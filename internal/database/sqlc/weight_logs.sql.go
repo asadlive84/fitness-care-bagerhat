@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createWeightLog = `-- name: CreateWeightLog :one
@@ -63,7 +64,7 @@ func (q *Queries) GetLatestWeightLogByMemberID(ctx context.Context, memberID uui
 }
 
 const listMembersNeedingWeightReminder = `-- name: ListMembersNeedingWeightReminder :many
-SELECT m.id, m.name, m.phone, m.password_hash, m.goal, m.join_date, m.current_weight, m.status, m.must_change_password, m.created_at, m.updated_at
+SELECT m.id, m.name, m.phone, m.password_hash, m.goal, m.join_date, m.current_weight, m.status, m.must_change_password, m.created_at, m.updated_at, m.height_cm, m.date_of_birth, m.religion, m.blood_group, m.hobbies, m.present_address, m.permanent_address, m.occupation, m.nid, m.emergency_phone
 FROM members m
 WHERE m.status = 'active'
   AND NOT EXISTS (
@@ -96,6 +97,16 @@ func (q *Queries) ListMembersNeedingWeightReminder(ctx context.Context, days int
 			&i.MustChangePassword,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.HeightCm,
+			&i.DateOfBirth,
+			&i.Religion,
+			&i.BloodGroup,
+			pq.Array(&i.Hobbies),
+			&i.PresentAddress,
+			&i.PermanentAddress,
+			&i.Occupation,
+			&i.Nid,
+			&i.EmergencyPhone,
 		); err != nil {
 			return nil, err
 		}

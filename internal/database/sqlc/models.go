@@ -51,6 +51,16 @@ type Member struct {
 	MustChangePassword bool            `json:"must_change_password"`
 	CreatedAt          time.Time       `json:"created_at"`
 	UpdatedAt          time.Time       `json:"updated_at"`
+	HeightCm           sql.NullFloat64 `json:"height_cm"`
+	DateOfBirth        sql.NullTime    `json:"date_of_birth"`
+	Religion           sql.NullString  `json:"religion"`
+	BloodGroup         sql.NullString  `json:"blood_group"`
+	Hobbies            []string        `json:"hobbies"`
+	PresentAddress     sql.NullString  `json:"present_address"`
+	PermanentAddress   sql.NullString  `json:"permanent_address"`
+	Occupation         sql.NullString  `json:"occupation"`
+	Nid                sql.NullString  `json:"nid"`
+	EmergencyPhone     sql.NullString  `json:"emergency_phone"`
 }
 
 type Message struct {

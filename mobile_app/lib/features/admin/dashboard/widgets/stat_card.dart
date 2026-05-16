@@ -11,6 +11,7 @@ class StatCard extends StatelessWidget {
     required this.icon,
     required this.color,
     this.trend,
+    this.onTap,
     super.key,
   });
 
@@ -19,10 +20,12 @@ class StatCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String? trend;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return GymCard(
+      onTap: onTap,
       padding: AppSpacing.paddingAll16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

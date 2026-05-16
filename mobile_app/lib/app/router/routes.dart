@@ -34,4 +34,7 @@ abstract final class Routes {
   static const memberMessages = '/member/messages';
   static String memberChat(String conversationId) =>
       '/member/messages/$conversationId';
+
+  // ─── Misc ──────────────────────────────────────────────
+  static const developer = '/developer';
 }

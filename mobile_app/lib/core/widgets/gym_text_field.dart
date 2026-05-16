@@ -47,6 +47,7 @@ class GymTextField extends StatefulWidget {
     this.focusNode,
     this.textCapitalization = TextCapitalization.none,
     this.errorText,
+    this.suffixText,
   });
 
   /// Label displayed above the field.
@@ -78,6 +79,9 @@ class GymTextField extends StatefulWidget {
 
   /// Icon displayed after the input text.
   final Widget? suffixIcon;
+
+  /// Text displayed after the input text (unit label).
+  final String? suffixText;
 
   /// Whether to obscure text (password field).
   final bool obscureText;
@@ -177,6 +181,8 @@ class _GymTextFieldState extends State<GymTextField> {
                     onPressed: () => setState(() => _obscure = !_obscure),
                   )
                 : widget.suffixIcon,
+            suffixText: widget.suffixText,
+            suffixStyle: AppText.labelSmall.copyWith(color: AppColors.textHint),
           ),
         ),
       ],

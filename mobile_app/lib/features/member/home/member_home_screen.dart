@@ -2,6 +2,7 @@ import 'package:fitness_care_bagerhat/app/theme/app_colors.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_spacing.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
 import 'package:fitness_care_bagerhat/core/extensions/datetime_ext.dart';
+import 'package:fitness_care_bagerhat/core/extensions/num_ext.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_error_state.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_shimmer.dart';
 import 'package:fitness_care_bagerhat/app/router/routes.dart';
@@ -9,6 +10,7 @@ import 'package:fitness_care_bagerhat/features/admin/members/member.dart';
 import 'package:fitness_care_bagerhat/features/member/home/member_home_controller.dart';
 import 'package:fitness_care_bagerhat/features/member/home/member_home_state.dart';
 import 'package:fitness_care_bagerhat/features/member/home/widgets/member_home_widgets.dart';
+import 'package:fitness_care_bagerhat/features/member/payments/member_payment_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -51,11 +53,24 @@ class _Content extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Greeting(name: data.member.name),
+          _Greeting(member: data.member),
           const SizedBox(height: AppSpacing.s24),
           _SubscriptionHero(subscription: data.activeSubscription),
           const SizedBox(height: AppSpacing.s24),
-          Text('Your Progress', style: AppText.titleMedium),
+          
+          Text('Health Insights', style: AppText.titleMedium),
+          const SizedBox(height: AppSpacing.s16),
+          if (data.member.bmi != null) ...[
+            BmiVisualizer(member: data.member),
+            const SizedBox(height: AppSpacing.s16),
+          ],
+          
+          if (data.weightTrend.isNotEmpty) ...[
+            WeightJourneyTracker(data: data.weightTrend),
+            const SizedBox(height: AppSpacing.s24),
+          ],
+
+          Text('Quick Stats', style: AppText.titleMedium),
           const SizedBox(height: AppSpacing.s16),
           Row(
             children: [
@@ -67,25 +82,25 @@ class _Content extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.s12),
               MemberStatMini(
-                label: 'Workouts',
-                value: data.totalWorkouts.toString(),
-                unit: 'total',
+                label: 'Height',
+                value: data.member.heightDisplay,
+                unit: '',
                 color: AppColors.accent,
               ),
               const SizedBox(width: AppSpacing.s12),
               MemberStatMini(
-                label: 'Streak',
-                value: data.currentStreak.toString(),
-                unit: 'days',
+                label: 'Age',
+                value: (data.member.age == null || data.member.age == 0)
+                    ? 'N/A'
+                    : data.member.age.toString(),
+                unit: (data.member.age == null || data.member.age == 0)
+                    ? ''
+                    : 'years',
                 color: AppColors.success,
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.s24),
-          const _QuickActions(),
-          const SizedBox(height: AppSpacing.s24),
-          if (data.weightTrend.isNotEmpty)
-            WeightMiniChart(data: data.weightTrend),
+
           const SizedBox(height: AppSpacing.s32),
         ],
       ),
@@ -94,14 +109,19 @@ class _Content extends StatelessWidget {
 }
 
 class _Greeting extends StatelessWidget {
-  const _Greeting({required this.name});
-  final String name;
+  const _Greeting({required this.member});
+  final Member member;
 
   String get _greeting {
+    final religion = member.religion?.toLowerCase() ?? '';
+    if (religion.contains('islam') || religion.contains('muslim')) {
+      return 'Assalamu Alaikum';
+    }
+    
     final hour = DateTime.now().hour;
     if (hour < 12) return 'Good morning';
     if (hour < 17) return 'Good afternoon';
-    return 'Assalamu Alaikum';
+    return 'Welcome';
   }
 
   @override
@@ -111,7 +131,7 @@ class _Greeting extends StatelessWidget {
       children: [
         Text('$_greeting,', style: AppText.headlineMedium),
         Text(
-          '$name 🌿',
+          '${member.name} 🌿',
           style: AppText.headlineMedium.copyWith(color: AppColors.primary),
         ),
         const SizedBox(height: 4),
@@ -124,32 +144,29 @@ class _Greeting extends StatelessWidget {
   }
 }
 
-class _SubscriptionHero extends StatelessWidget {
+class _SubscriptionHero extends ConsumerWidget {
   const _SubscriptionHero({required this.subscription});
   final MemberSubscription? subscription;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (subscription == null) {
       return Container(
         width: double.infinity,
         padding: AppSpacing.paddingAll24,
         decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.05),
+          color: Colors.white,
           borderRadius: AppSpacing.r24,
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
+          border: Border.all(color: AppColors.divider),
         ),
         child: Column(
           children: [
             Icon(PhosphorIcons.handWaving(), color: AppColors.primary, size: 40),
             const SizedBox(height: AppSpacing.s12),
-            Text(
-              'Welcome to Fitness Care!',
-              style: AppText.titleMedium,
-            ),
+            Text('Welcome to Fitness Care!', style: AppText.titleMedium),
             const SizedBox(height: AppSpacing.s8),
             Text(
-              'Visit the gym office to activate your membership plan and start your journey.',
+              'Visit the gym office to activate your membership plan.',
               textAlign: TextAlign.center,
               style: AppText.bodySmall.copyWith(color: AppColors.textSecondary),
             ),
@@ -159,139 +176,137 @@ class _SubscriptionHero extends StatelessWidget {
     }
 
     final sub = subscription!;
-    final total = sub.endDate.difference(sub.startDate).inDays;
-    final used = DateTime.now().difference(sub.startDate).inDays;
-    final progress = total > 0 ? (used / total).clamp(0.0, 1.0) : 0.0;
-    final daysLeft = sub.endDate.difference(DateTime.now()).inDays;
+    final paidAsync = ref.watch(memberActiveSubPaidProvider);
+    final total = sub.finalPrice;
+    final paid = paidAsync.valueOrNull ?? 0.0;
+    final due = total - paid;
+    final progress = total > 0 ? (paid / total).clamp(0.0, 1.0) : 0.0;
+    final isFullyPaid = due <= 0;
 
-    return Container(
-      width: double.infinity,
-      padding: AppSpacing.paddingAll24,
-      decoration: BoxDecoration(
-        gradient: daysLeft < 7
-            ? AppColors.gradientOrange
-            : AppColors.gradientGreen,
-        borderRadius: AppSpacing.r24,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Active Subscription',
-                style: AppText.labelSmall.copyWith(
-                  color: Colors.white.withValues(alpha: 0.8),
-                ),
-              ),
-              Icon(PhosphorIcons.crown(), color: Colors.white, size: 20),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.s8),
-          Text(
-            sub.note ?? 'Active Plan',
-            style: AppText.titleLarge.copyWith(color: Colors.white),
-          ),
-          const SizedBox(height: AppSpacing.s20),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.white.withValues(alpha: 0.2),
-              color: AppColors.accent,
-              minHeight: 6,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.s12),
-          Text(
-            '$daysLeft days left until renewal',
-            style: AppText.labelSmall.copyWith(color: Colors.white),
-          ),
-          const SizedBox(height: AppSpacing.s4),
-          Text(
-            'Renews ${sub.endDate.toDisplay()}',
-            style: AppText.labelSmall.copyWith(
-              color: Colors.white.withValues(alpha: 0.7),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+    final durationDays = sub.endDate.difference(sub.startDate).inDays;
+    final durationText = durationDays >= 28
+        ? '${(durationDays / 30).round()} Month${(durationDays / 30).round() > 1 ? 's' : ''}'
+        : '$durationDays Days';
 
-class _QuickActions extends StatelessWidget {
-  const _QuickActions();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _ActionChip(
-            label: 'Log Workout',
-            icon: PhosphorIcons.barbell(),
-            color: AppColors.primary,
-            onTap: () => context.push(Routes.memberWorkoutLog),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.s12),
-        Expanded(
-          child: _ActionChip(
-            label: 'Log Diet',
-            icon: PhosphorIcons.bowlFood(),
-            color: AppColors.accent,
-            onTap: () => context.push(Routes.memberDietLog),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ActionChip extends StatelessWidget {
-  const _ActionChip({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => context.push(Routes.memberPayments),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.s12),
+        width: double.infinity,
+        padding: AppSpacing.paddingAll24,
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: AppSpacing.r12,
-          border: Border.all(color: color.withValues(alpha: 0.2)),
+          color: Colors.white,
+          borderRadius: AppSpacing.r24,
+          border: Border.all(
+            color: isFullyPaid ? AppColors.success.withValues(alpha: 0.3) : AppColors.divider,
+            width: isFullyPaid ? 1.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: AppText.labelMedium.copyWith(color: color),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        sub.note ?? 'Membership Plan',
+                        style: AppText.titleLarge.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$durationText Plan · Exp ${sub.endDate.toDisplay()}',
+                        style: AppText.labelSmall.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  total.toBDT(),
+                  style: AppText.titleLarge.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.s24),
+            ClipRRect(
+              borderRadius: AppSpacing.rFull,
+              child: LinearProgressIndicator(
+                value: progress,
+                backgroundColor: AppColors.divider.withOpacity(0.5),
+                valueColor: AlwaysStoppedAnimation(
+                  isFullyPaid ? AppColors.success : AppColors.accent,
+                ),
+                minHeight: 8,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.s16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _MinimalStat(label: 'PAID', value: paid.toBDT(), color: AppColors.success),
+                _MinimalStat(
+                  label: 'DUE',
+                  value: (due < 0 ? 0 : due).toBDT(),
+                  color: isFullyPaid ? AppColors.textHint : AppColors.error,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                ),
+              ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MinimalStat extends StatelessWidget {
+  const _MinimalStat({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.crossAxisAlignment = CrossAxisAlignment.start,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+  final CrossAxisAlignment crossAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: crossAxisAlignment,
+      children: [
+        Text(
+          label,
+          style: AppText.labelSmall.copyWith(
+            color: AppColors.textSecondary,
+            letterSpacing: 1,
+            fontSize: 10,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: AppText.titleMedium.copyWith(
+            color: color,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 }

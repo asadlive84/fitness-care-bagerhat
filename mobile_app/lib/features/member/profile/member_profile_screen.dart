@@ -3,6 +3,7 @@ import 'package:fitness_care_bagerhat/app/theme/app_colors.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_spacing.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
 import 'package:fitness_care_bagerhat/core/auth/auth_provider.dart';
+import 'package:fitness_care_bagerhat/core/extensions/datetime_ext.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_avatar.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_button.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_card.dart';
@@ -80,6 +81,136 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             ),
             const SizedBox(height: AppSpacing.s32),
 
+            if (member != null) ...[
+              _Section(
+                title: 'Member Info',
+                children: [
+                  _DetailRow(
+                    label: 'Member Since',
+                    value: member.joinDate?.toDisplay() ?? '—',
+                    icon: PhosphorIcons.calendar(),
+                  ),
+                  const Divider(height: AppSpacing.s32),
+                  _DetailRow(
+                    label: 'Weight',
+                    value: member.currentWeight != null
+                        ? '${member.currentWeight!.toStringAsFixed(1)} kg'
+                        : '—',
+                    icon: PhosphorIcons.scales(),
+                  ),
+                  const Divider(height: AppSpacing.s32),
+                  _DetailRow(
+                    label: 'Height',
+                    value: member.heightDisplay,
+                    icon: PhosphorIcons.arrowsVertical(),
+                  ),
+                  if (member.bmi != null) ...[
+                    const Divider(height: AppSpacing.s32),
+                    _BmiRow(bmi: member.bmi!, category: member.bmiCategory!),
+                  ],
+                  const Divider(height: AppSpacing.s32),
+                  _DetailRow(
+                    label: 'Phone Number',
+                    value: member.phone,
+                    icon: PhosphorIcons.phone(),
+                  ),
+                  const Divider(height: AppSpacing.s32),
+                  _DetailRow(
+                    label: 'Gender',
+                    value: member.gender ?? '—',
+                    icon: PhosphorIcons.genderIntersex(),
+                  ),
+                  const Divider(height: AppSpacing.s32),
+                  _DetailRow(
+                    label: 'Blood Group',
+                    value: member.bloodGroup ?? '—',
+                    icon: PhosphorIcons.drop(),
+                  ),
+                  const Divider(height: AppSpacing.s32),
+                  _DetailRow(
+                    label: 'Religion',
+                    value: member.religion ?? '—',
+                    icon: PhosphorIcons.book(),
+                  ),
+                  const Divider(height: AppSpacing.s32),
+                  _DetailRow(
+                    label: 'Date of Birth',
+                    value: member.dateOfBirth != null
+                        ? '${member.dateOfBirth!.toDisplay()} (${member.age} years)'
+                        : '—',
+                    icon: PhosphorIcons.cake(),
+                  ),
+                  const Divider(height: AppSpacing.s32),
+                  _DetailRow(
+                    label: 'Occupation',
+                    value: member.occupation ?? '—',
+                    icon: PhosphorIcons.briefcase(),
+                  ),
+                  const Divider(height: AppSpacing.s32),
+                  _DetailRow(
+                    label: 'NID',
+                    value: member.nid ?? '—',
+                    icon: PhosphorIcons.identificationCard(),
+                  ),
+                  const Divider(height: AppSpacing.s32),
+                  _DetailRow(
+                    label: 'Emergency Phone',
+                    value: member.emergencyPhone ?? '—',
+                    icon: PhosphorIcons.phoneCall(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.s20),
+              
+              if (member.presentAddress != null || member.permanentAddress != null) ...[
+                _Section(
+                  title: 'Addresses',
+                  children: [
+                    if (member.presentAddress != null) ...[
+                      _DetailRow(
+                        label: 'Present Address',
+                        value: member.presentAddress!,
+                        icon: PhosphorIcons.mapPin(),
+                      ),
+                      if (member.permanentAddress != null)
+                        const Divider(height: AppSpacing.s32),
+                    ],
+                    if (member.permanentAddress != null)
+                      _DetailRow(
+                        label: 'Permanent Address',
+                        value: member.permanentAddress!,
+                        icon: PhosphorIcons.house(),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.s20),
+              ],
+
+              if (member.goal != null || member.hobbies.isNotEmpty) ...[
+                _Section(
+                  title: 'Goals & Hobbies',
+                  children: [
+                    if (member.goal != null) ...[
+                      _DetailRow(
+                        label: 'Fitness Goal',
+                        value: member.goal!,
+                        icon: PhosphorIcons.target(),
+                      ),
+                      if (member.hobbies.isNotEmpty)
+                        const Divider(height: AppSpacing.s32),
+                    ],
+                    if (member.hobbies.isNotEmpty)
+                      _DetailRow(
+                        label: 'Hobbies',
+                        value: member.hobbies.join(', '),
+                        icon: PhosphorIcons.star(),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.s20),
+              ],
+            ],
+
             _Section(
               title: 'Membership',
               children: [
@@ -132,6 +263,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   label: 'About Fitness Care',
                   icon: PhosphorIcons.info(),
                   onTap: () {},
+                ),
+                _Tile(
+                  label: 'Developer Info',
+                  icon: PhosphorIcons.code(),
+                  onTap: () => context.push(Routes.developer),
                 ),
               ],
             ),
@@ -245,6 +381,98 @@ class _Tile extends StatelessWidget {
       title: Text(label, style: AppText.bodyMedium),
       trailing: trailing ??
           Icon(Icons.chevron_right, size: 20, color: AppColors.textHint),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.s8),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: AppSpacing.r8,
+          ),
+          child: Icon(icon, color: AppColors.primary, size: 20),
+        ),
+        const SizedBox(width: AppSpacing.s16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: AppText.labelSmall.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: 2),
+              Text(value, style: AppText.titleSmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BmiRow extends StatelessWidget {
+  const _BmiRow({required this.bmi, required this.category});
+  final double bmi;
+  final String category;
+
+  Color get _color {
+    if (category == 'Underweight') return AppColors.warning;
+    if (category == 'Normal') return AppColors.success;
+    if (category == 'Overweight') return AppColors.warning;
+    return AppColors.error;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.s8),
+          decoration: BoxDecoration(
+            color: _color.withValues(alpha: 0.1),
+            borderRadius: AppSpacing.r8,
+          ),
+          child: Icon(PhosphorIcons.heartbeat(), color: _color, size: 20),
+        ),
+        const SizedBox(width: AppSpacing.s16),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('BMI', style: AppText.labelSmall.copyWith(color: AppColors.textSecondary)),
+            Row(
+              children: [
+                Text(bmi.toStringAsFixed(1), style: AppText.titleSmall),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _color.withValues(alpha: 0.12),
+                    borderRadius: AppSpacing.rFull,
+                  ),
+                  child: Text(
+                    category,
+                    style: AppText.labelSmall.copyWith(color: _color, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

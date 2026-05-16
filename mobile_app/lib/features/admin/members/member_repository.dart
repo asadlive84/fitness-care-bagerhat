@@ -111,14 +111,14 @@ class MemberRepository {
     );
   }
 
-  Future<void> assignPlan({
+  Future<MemberSubscription> assignPlan({
     required String memberId,
     required String planId,
     required double finalPrice,
     DateTime? startDate,
     String? note,
   }) async {
-    await _apiClient.post(
+    final response = await _apiClient.post(
       '/api/v1/admin/members/$memberId/subscriptions',
       data: {
         'plan_template_id': planId,
@@ -127,6 +127,11 @@ class MemberRepository {
         if (note != null && note.isNotEmpty) 'note': note,
       },
     );
+    final apiResponse = ApiResponse.fromJson(
+      response.data as Map<String, dynamic>,
+      (json) => MemberSubscription.fromJson(json as Map<String, dynamic>),
+    );
+    return apiResponse.data!;
   }
 
   Future<ApiResponse<List<MemberSubscription>>> getSubscriptions(String memberId) async {

@@ -16,6 +16,7 @@ abstract final class AppSpacing {
   static const double s40 = 40;
   static const double s48 = 48;
   static const double s64 = 64;
+  static const double s80 = 80;
 
   // ─── Border Radius ─────────────────────────────────────
   static const r4 = BorderRadius.all(Radius.circular(4));

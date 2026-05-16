@@ -25,6 +25,7 @@ import 'package:fitness_care_bagerhat/features/member/payments/member_payments_s
 import 'package:fitness_care_bagerhat/features/member/profile/member_profile_screen.dart';
 import 'package:fitness_care_bagerhat/features/member/shell/member_shell.dart';
 import 'package:fitness_care_bagerhat/features/member/subscription/member_subscription_screen.dart';
+import 'package:fitness_care_bagerhat/features/developer/developer_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -188,6 +189,11 @@ GoRouter createRouter(Ref ref, Listenable listenable) {
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: Routes.developer,
+        name: 'developer',
+        builder: (context, state) => const DeveloperScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

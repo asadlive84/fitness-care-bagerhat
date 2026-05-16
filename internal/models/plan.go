@@ -14,4 +14,5 @@ type PlanTemplate struct {
 	DefaultPrice float64   `json:"default_price"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+	MemberCount  int       `json:"member_count"`
 }

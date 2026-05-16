@@ -40,7 +40,6 @@ type Querier interface {
 	GetPaymentSummaryByMonth(ctx context.Context, month time.Time) (GetPaymentSummaryByMonthRow, error)
 	GetPlanTemplateByID(ctx context.Context, id uuid.UUID) (PlanTemplate, error)
 	GetSettingByKey(ctx context.Context, key string) (Setting, error)
-	ListAllPayments(ctx context.Context, arg ListAllPaymentsParams) ([]Payment, error)
 	ListBroadcasts(ctx context.Context, arg ListBroadcastsParams) ([]Message, error)
 	// Returns one row per member who has exchanged a direct message with admin.
 	ListConversationMemberIDs(ctx context.Context) ([]interface{}, error)

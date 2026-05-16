@@ -73,50 +73,6 @@ func (q *Queries) GetPaymentSummaryByMonth(ctx context.Context, month time.Time)
 	return i, err
 }
 
-const listAllPayments = `-- name: ListAllPayments :many
-SELECT id, member_id, subscription_id, amount, method, paid_at, recorded_by_admin_id, created_at FROM payments
-WHERE ($1::timestamptz IS NULL OR paid_at >= $1::timestamptz)
-  AND ($2::timestamptz IS NULL OR paid_at <= $2::timestamptz)
-ORDER BY paid_at DESC
-`
-
-type ListAllPaymentsParams struct {
-	FromTime sql.NullTime `json:"from_time"`
-	ToTime   sql.NullTime `json:"to_time"`
-}
-
-func (q *Queries) ListAllPayments(ctx context.Context, arg ListAllPaymentsParams) ([]Payment, error) {
-	rows, err := q.db.QueryContext(ctx, listAllPayments, arg.FromTime, arg.ToTime)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Payment
-	for rows.Next() {
-		var i Payment
-		if err := rows.Scan(
-			&i.ID,
-			&i.MemberID,
-			&i.SubscriptionID,
-			&i.Amount,
-			&i.Method,
-			&i.PaidAt,
-			&i.RecordedByAdminID,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listPaymentsByMember = `-- name: ListPaymentsByMember :many
 SELECT id, member_id, subscription_id, amount, method, paid_at, recorded_by_admin_id, created_at FROM payments
 WHERE member_id = $1

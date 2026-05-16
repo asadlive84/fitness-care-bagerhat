@@ -120,7 +120,7 @@ func (r *MemberRepo) Create(ctx context.Context, m *models.Member, passwordHash 
 	return mapErr(err)
 }
 
-// GetByID returns a full member profile by primary key.
+// GetByID returns a full member profile by primary key, including active subscription if any.
 func (r *MemberRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Member, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT`+memberSelectCols+` FROM members WHERE id = $1 LIMIT 1`, id)
