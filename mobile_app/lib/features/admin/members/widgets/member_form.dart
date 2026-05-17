@@ -55,6 +55,7 @@ class _MemberFormState extends State<MemberForm> {
   // ── Preferences ────────────────────────────────────────────────────────────
   String? _religion;
   String? _bloodGroup;
+  String? _gender;
   final Set<String> _hobbies = {};
 
   @override
@@ -83,8 +84,18 @@ class _MemberFormState extends State<MemberForm> {
     _permanentAddressCtrl = TextEditingController(text: m?.permanentAddress ?? '');
     _dateOfBirth = m?.dateOfBirth;
     _joinDate = m?.joinDate;
-    _religion = m?.religion;
-    _bloodGroup = m?.bloodGroup;
+    
+    // Safely initialize dropdown values
+    _religion = (m?.religion != null && kReligions.contains(m!.religion)) ? m.religion : null;
+    _bloodGroup = (m?.bloodGroup != null && kBloodGroups.contains(m!.bloodGroup)) ? m.bloodGroup : null;
+    
+    // Normalize gender to match kGenders or default to Other
+    if (m?.gender != null && kGenders.contains(m!.gender)) {
+      _gender = m.gender;
+    } else {
+      _gender = widget.member == null ? null : 'Other';
+    }
+    
     _hobbies.addAll(m?.hobbies ?? []);
 
     // Listen to height changes for BMI preview
@@ -137,6 +148,7 @@ class _MemberFormState extends State<MemberForm> {
         emergencyPhone: _emergencyPhoneCtrl.text.trim().isEmpty
             ? null
             : _emergencyPhoneCtrl.text.trim(),
+        gender: _gender!,
       ),
     );
   }
@@ -172,6 +184,16 @@ class _MemberFormState extends State<MemberForm> {
             validator: (v) => (v == null || v.trim().length < 10)
                 ? 'Enter a valid phone number'
                 : null,
+          ),
+          const SizedBox(height: AppSpacing.s16),
+          
+          _DropdownField(
+            label: 'Gender *',
+            value: _gender,
+            items: kGenders,
+            icon: PhosphorIcons.genderIntersex(),
+            onChanged: (v) => setState(() => _gender = v),
+            validator: (v) => (v == null || v.isEmpty) ? 'Please select gender' : null,
           ),
           const SizedBox(height: AppSpacing.s16),
 
@@ -410,10 +432,12 @@ class MemberFormData {
     this.occupation,
     this.nid,
     this.emergencyPhone,
+    required this.gender,
   });
 
   final String name;
   final String phone;
+  final String gender;
   final String? goal;
   final double? currentWeight;
   final double? heightCm;
@@ -519,6 +543,7 @@ class _DropdownField extends StatelessWidget {
     required this.icon,
     required this.onChanged,
     this.value,
+    this.validator,
   });
 
   final String label;
@@ -526,6 +551,7 @@ class _DropdownField extends StatelessWidget {
   final List<String> items;
   final IconData icon;
   final ValueChanged<String?> onChanged;
+  final FormFieldValidator<String>? validator;
 
   @override
   Widget build(BuildContext context) {
@@ -543,6 +569,7 @@ class _DropdownField extends StatelessWidget {
         ...items.map((e) => DropdownMenuItem(value: e, child: Text(e))),
       ],
       onChanged: onChanged,
+      validator: validator,
     );
   }
 }

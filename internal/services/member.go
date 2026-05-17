@@ -18,6 +18,7 @@ import (
 type CreateMemberRequest struct {
 	Name             string
 	Phone            string
+	Gender           string
 	Goal             *string
 	JoinDate         time.Time
 	CurrentWeight    *float64
@@ -45,6 +46,7 @@ type CreateMemberResult struct {
 type UpdateMemberRequest struct {
 	Name             string
 	Phone            string
+	Gender           string
 	Goal             *string
 	CurrentWeight    *float64
 	HeightCm         *float64
@@ -90,6 +92,7 @@ func (s *MemberService) CreateMember(ctx context.Context, req CreateMemberReques
 		ID:                 uuid.New(),
 		Name:               req.Name,
 		Phone:              req.Phone,
+		Gender:             req.Gender,
 		Goal:               req.Goal,
 		JoinDate:           joinDate,
 		CurrentWeight:      req.CurrentWeight,
@@ -164,7 +167,8 @@ func (s *MemberService) UpdateMember(ctx context.Context, id uuid.UUID, req Upda
 
 	existing.Name             = req.Name
 	existing.Phone            = req.Phone
-	existing.Goal             = req.Goal
+	existing.Gender           = req.Gender
+	existing.Goal              = req.Goal
 	existing.CurrentWeight    = req.CurrentWeight
 	existing.HeightCm         = req.HeightCm
 	existing.DateOfBirth      = req.DateOfBirth

@@ -28,9 +28,10 @@ WHERE member_id = @member_id
   AND status    = 'active';
 
 -- name: UpdateActiveSubscription :one
--- In-place patch of the current active subscription (price, end date, note).
+-- In-place patch of the current active subscription (price, start date, end date, note).
 UPDATE subscriptions
 SET final_price = @final_price,
+    start_date  = @start_date,
     end_date    = @end_date,
     note        = @note
 WHERE member_id = @member_id

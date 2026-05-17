@@ -53,6 +53,12 @@ func (r *SubscriptionRepo) GetActiveByMemberID(ctx context.Context, memberID uui
 	return sub, nil
 }
 
+// GetActiveEnrichedByMemberID delegates to the underlying repo (no caching —
+// aggregates live payment data that must stay fresh).
+func (r *SubscriptionRepo) GetActiveEnrichedByMemberID(ctx context.Context, memberID uuid.UUID) (*models.EnrichedSubscription, error) {
+	return r.db.GetActiveEnrichedByMemberID(ctx, memberID)
+}
+
 // Create writes to DB then invalidates the cached active subscription.
 func (r *SubscriptionRepo) Create(ctx context.Context, s *models.Subscription) error {
 	if err := r.db.Create(ctx, s); err != nil {
@@ -86,8 +92,8 @@ func (r *SubscriptionRepo) ReplaceActive(ctx context.Context, memberID uuid.UUID
 }
 
 // UpdateActive updates the active subscription in place then invalidates cache.
-func (r *SubscriptionRepo) UpdateActive(ctx context.Context, memberID uuid.UUID, endDate time.Time, finalPrice float64, note *string) (*models.Subscription, error) {
-	sub, err := r.db.UpdateActive(ctx, memberID, endDate, finalPrice, note)
+func (r *SubscriptionRepo) UpdateActive(ctx context.Context, memberID uuid.UUID, startDate time.Time, endDate time.Time, finalPrice float64, note *string, billingType string, prepaidDueDate *time.Time, postpaidGraceBefore int, postpaidGraceAfter int) (*models.Subscription, error) {
+	sub, err := r.db.UpdateActive(ctx, memberID, startDate, endDate, finalPrice, note, billingType, prepaidDueDate, postpaidGraceBefore, postpaidGraceAfter)
 	if err != nil {
 		return nil, err
 	}

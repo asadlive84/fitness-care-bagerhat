@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const countMembers = `-- name: CountMembers :one
@@ -39,7 +40,7 @@ func (q *Queries) CountMembers(ctx context.Context, arg CountMembersParams) (int
 const createMember = `-- name: CreateMember :one
 INSERT INTO members (id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at
+RETURNING id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone
 `
 
 type CreateMemberParams struct {
@@ -79,12 +80,22 @@ func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) (Mem
 		&i.MustChangePassword,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HeightCm,
+		&i.DateOfBirth,
+		&i.Religion,
+		&i.BloodGroup,
+		pq.Array(&i.Hobbies),
+		&i.PresentAddress,
+		&i.PermanentAddress,
+		&i.Occupation,
+		&i.Nid,
+		&i.EmergencyPhone,
 	)
 	return i, err
 }
 
 const getMemberByID = `-- name: GetMemberByID :one
-SELECT id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at FROM members WHERE id = $1 LIMIT 1
+SELECT id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone FROM members WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetMemberByID(ctx context.Context, id uuid.UUID) (Member, error) {
@@ -102,12 +113,22 @@ func (q *Queries) GetMemberByID(ctx context.Context, id uuid.UUID) (Member, erro
 		&i.MustChangePassword,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HeightCm,
+		&i.DateOfBirth,
+		&i.Religion,
+		&i.BloodGroup,
+		pq.Array(&i.Hobbies),
+		&i.PresentAddress,
+		&i.PermanentAddress,
+		&i.Occupation,
+		&i.Nid,
+		&i.EmergencyPhone,
 	)
 	return i, err
 }
 
 const getMemberByPhone = `-- name: GetMemberByPhone :one
-SELECT id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at FROM members WHERE phone = $1 LIMIT 1
+SELECT id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone FROM members WHERE phone = $1 LIMIT 1
 `
 
 func (q *Queries) GetMemberByPhone(ctx context.Context, phone string) (Member, error) {
@@ -125,12 +146,22 @@ func (q *Queries) GetMemberByPhone(ctx context.Context, phone string) (Member, e
 		&i.MustChangePassword,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HeightCm,
+		&i.DateOfBirth,
+		&i.Religion,
+		&i.BloodGroup,
+		pq.Array(&i.Hobbies),
+		&i.PresentAddress,
+		&i.PermanentAddress,
+		&i.Occupation,
+		&i.Nid,
+		&i.EmergencyPhone,
 	)
 	return i, err
 }
 
 const listMembers = `-- name: ListMembers :many
-SELECT id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at FROM members
+SELECT id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone FROM members
 WHERE
     ($1::text IS NULL OR status = $1::text)
     AND (
@@ -176,6 +207,16 @@ func (q *Queries) ListMembers(ctx context.Context, arg ListMembersParams) ([]Mem
 			&i.MustChangePassword,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.HeightCm,
+			&i.DateOfBirth,
+			&i.Religion,
+			&i.BloodGroup,
+			pq.Array(&i.Hobbies),
+			&i.PresentAddress,
+			&i.PermanentAddress,
+			&i.Occupation,
+			&i.Nid,
+			&i.EmergencyPhone,
 		); err != nil {
 			return nil, err
 		}
@@ -191,7 +232,7 @@ func (q *Queries) ListMembers(ctx context.Context, arg ListMembersParams) ([]Mem
 }
 
 const listMembersWithExpiringSoon = `-- name: ListMembersWithExpiringSoon :many
-SELECT DISTINCT m.id, m.name, m.phone, m.password_hash, m.goal, m.join_date, m.current_weight, m.status, m.must_change_password, m.created_at, m.updated_at
+SELECT DISTINCT m.id, m.name, m.phone, m.password_hash, m.goal, m.join_date, m.current_weight, m.status, m.must_change_password, m.created_at, m.updated_at, m.height_cm, m.date_of_birth, m.religion, m.blood_group, m.hobbies, m.present_address, m.permanent_address, m.occupation, m.nid, m.emergency_phone
 FROM members m
 JOIN subscriptions s ON s.member_id = m.id
 WHERE m.status     = 'active'
@@ -223,6 +264,16 @@ func (q *Queries) ListMembersWithExpiringSoon(ctx context.Context, days int32) (
 			&i.MustChangePassword,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.HeightCm,
+			&i.DateOfBirth,
+			&i.Religion,
+			&i.BloodGroup,
+			pq.Array(&i.Hobbies),
+			&i.PresentAddress,
+			&i.PermanentAddress,
+			&i.Occupation,
+			&i.Nid,
+			&i.EmergencyPhone,
 		); err != nil {
 			return nil, err
 		}
@@ -245,7 +296,7 @@ SET name           = $1,
     current_weight = $4,
     updated_at     = NOW()
 WHERE id = $5
-RETURNING id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at
+RETURNING id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone
 `
 
 type UpdateMemberParams struct {
@@ -277,6 +328,16 @@ func (q *Queries) UpdateMember(ctx context.Context, arg UpdateMemberParams) (Mem
 		&i.MustChangePassword,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HeightCm,
+		&i.DateOfBirth,
+		&i.Religion,
+		&i.BloodGroup,
+		pq.Array(&i.Hobbies),
+		&i.PresentAddress,
+		&i.PermanentAddress,
+		&i.Occupation,
+		&i.Nid,
+		&i.EmergencyPhone,
 	)
 	return i, err
 }

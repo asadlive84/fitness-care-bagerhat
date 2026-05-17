@@ -26,21 +26,33 @@ type adminMemberSvc interface {
 	DeleteMember(ctx context.Context, id uuid.UUID) error
 }
 
-// AdminMemberHandler holds HTTP handlers for admin member management.
-type AdminMemberHandler struct {
-	svc adminMemberSvc
-	log *slog.Logger
+type adminEnrichedSubSvc interface {
+	GetActiveSubscriptionEnriched(ctx context.Context, memberID uuid.UUID) (*models.EnrichedSubscription, error)
 }
 
-// NewAdminMemberHandler creates an AdminMemberHandler backed by the concrete service.
-func NewAdminMemberHandler(svc *services.MemberService, log *slog.Logger) *AdminMemberHandler {
-	return &AdminMemberHandler{svc: svc, log: log}
+// memberDetailResp is the enriched response for admin GetMember — embeds all
+// member fields and adds the active subscription with plan and payment info.
+type memberDetailResp struct {
+	*models.Member
+	ActiveSubscription *models.EnrichedSubscription `json:"active_subscription"`
+}
+
+// AdminMemberHandler holds HTTP handlers for admin member management.
+type AdminMemberHandler struct {
+	svc  adminMemberSvc
+	subs adminEnrichedSubSvc
+	log  *slog.Logger
+}
+
+// NewAdminMemberHandler creates an AdminMemberHandler backed by the concrete services.
+func NewAdminMemberHandler(svc *services.MemberService, subs *services.SubscriptionService, log *slog.Logger) *AdminMemberHandler {
+	return &AdminMemberHandler{svc: svc, subs: subs, log: log}
 }
 
 // NewAdminMemberHandlerWithSvc creates an AdminMemberHandler with any adminMemberSvc
 // implementation — used in tests to inject fakes.
-func NewAdminMemberHandlerWithSvc(svc adminMemberSvc, log *slog.Logger) *AdminMemberHandler {
-	return &AdminMemberHandler{svc: svc, log: log}
+func NewAdminMemberHandlerWithSvc(svc adminMemberSvc, subs adminEnrichedSubSvc, log *slog.Logger) *AdminMemberHandler {
+	return &AdminMemberHandler{svc: svc, subs: subs, log: log}
 }
 
 // ── Request DTOs ──────────────────────────────────────────────────────────────
@@ -48,6 +60,7 @@ func NewAdminMemberHandlerWithSvc(svc adminMemberSvc, log *slog.Logger) *AdminMe
 type createMemberReq struct {
 	Name             string   `json:"name"              validate:"required,min=2,max=100"`
 	Phone            string   `json:"phone"             validate:"required,min=10,max=15"`
+	Gender           string   `json:"gender"            validate:"required,oneof=Male Female Other"`
 	Goal             *string  `json:"goal"`
 	CurrentWeight    *float64 `json:"current_weight"`
 	HeightCm         *float64 `json:"height_cm"`
@@ -66,6 +79,7 @@ type createMemberReq struct {
 type updateMemberReq struct {
 	Name             string   `json:"name"              validate:"required,min=2,max=100"`
 	Phone            string   `json:"phone"             validate:"required,min=10,max=15"`
+	Gender           string   `json:"gender"            validate:"required,oneof=Male Female Other"`
 	Goal             *string  `json:"goal"`
 	CurrentWeight    *float64 `json:"current_weight"`
 	HeightCm         *float64 `json:"height_cm"`
@@ -104,6 +118,7 @@ func (h *AdminMemberHandler) CreateMember(c *fiber.Ctx) error {
 	svcReq := services.CreateMemberRequest{
 		Name:             req.Name,
 		Phone:            req.Phone,
+		Gender:           req.Gender,
 		Goal:             req.Goal,
 		CurrentWeight:    req.CurrentWeight,
 		HeightCm:         req.HeightCm,
@@ -223,7 +238,14 @@ func (h *AdminMemberHandler) GetMember(c *fiber.Ctx) error {
 			"INTERNAL_ERROR", "Could not fetch member", nil)
 	}
 
-	return utils.SuccessResponse(c, fiber.StatusOK, member)
+	// Enrich with active subscription (plan info + payment totals). Errors are
+	// non-fatal — we still return the member profile if the query fails.
+	activeSub, _ := h.subs.GetActiveSubscriptionEnriched(c.UserContext(), id)
+
+	return utils.SuccessResponse(c, fiber.StatusOK, memberDetailResp{
+		Member:             member,
+		ActiveSubscription: activeSub,
+	})
 }
 
 // UpdateMember godoc
@@ -251,6 +273,7 @@ func (h *AdminMemberHandler) UpdateMember(c *fiber.Ctx) error {
 	svcUpd := services.UpdateMemberRequest{
 		Name:             req.Name,
 		Phone:            req.Phone,
+		Gender:           req.Gender,
 		Goal:             req.Goal,
 		CurrentWeight:    req.CurrentWeight,
 		HeightCm:         req.HeightCm,

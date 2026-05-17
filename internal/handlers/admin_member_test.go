@@ -66,12 +66,19 @@ func (f *fakeMemberSvc) DeleteMember(_ context.Context, _ uuid.UUID) error {
 
 // ── Test app factory ──────────────────────────────────────────────────────────
 
+// fakeEnrichedSubSvc satisfies adminEnrichedSubSvc with a nil return.
+type fakeEnrichedSubSvc struct{}
+
+func (f *fakeEnrichedSubSvc) GetActiveSubscriptionEnriched(_ context.Context, _ uuid.UUID) (*models.EnrichedSubscription, error) {
+	return nil, nil
+}
+
 func newTestApp(svc *fakeMemberSvc) *fiber.App {
 	app := fiber.New(fiber.Config{ErrorHandler: func(c *fiber.Ctx, err error) error {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}})
 
-	h := handlers.NewAdminMemberHandlerWithSvc(svc, slog.Default())
+	h := handlers.NewAdminMemberHandlerWithSvc(svc, &fakeEnrichedSubSvc{}, slog.Default())
 	app.Post("/admin/members", h.CreateMember)
 	app.Get("/admin/members", h.ListMembers)
 	app.Get("/admin/members/:id", h.GetMember)
@@ -121,7 +128,7 @@ func TestCreateMember_Success(t *testing.T) {
 	m := sampleMember()
 	svc := &fakeMemberSvc{createResult: &services.CreateMemberResult{Member: m, TempPassword: "Abc12345"}}
 	resp := doRequest(t, newTestApp(svc), http.MethodPost, "/admin/members", map[string]any{
-		"name": "Rahim Uddin", "phone": "01711000001",
+		"name": "Rahim Uddin", "phone": "01711000001", "gender": "Male",
 	})
 
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -143,7 +150,7 @@ func TestCreateMember_ValidationError(t *testing.T) {
 func TestCreateMember_Conflict(t *testing.T) {
 	svc := &fakeMemberSvc{createErr: fmt.Errorf("%w: phone already registered", services.ErrConflict)}
 	resp := doRequest(t, newTestApp(svc), http.MethodPost, "/admin/members", map[string]any{
-		"name": "Rahim Uddin", "phone": "01711000001",
+		"name": "Rahim Uddin", "phone": "01711000001", "gender": "Male",
 	})
 	assert.Equal(t, http.StatusConflict, resp.StatusCode)
 }
@@ -192,7 +199,7 @@ func TestUpdateMember_Success(t *testing.T) {
 	m := sampleMember()
 	svc := &fakeMemberSvc{updateResult: m}
 	resp := doRequest(t, newTestApp(svc), http.MethodPatch, "/admin/members/"+m.ID.String(), map[string]any{
-		"name": "Updated Name", "phone": "01722000002",
+		"name": "Updated Name", "phone": "01722000002", "gender": "Male",
 	})
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }

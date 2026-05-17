@@ -8,10 +8,6 @@ import 'package:fitness_care_bagerhat/features/admin/members/member.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-/// ## MemberListTile
-///
-/// Rich list tile for a gym member.
-/// Shows avatar, name, phone, status badge, and active plan summary.
 class MemberListTile extends StatelessWidget {
   const MemberListTile({
     required this.member,
@@ -24,16 +20,13 @@ class MemberListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sub = member.activeSubscription;
     return GymCard(
       onTap: onTap,
       padding: AppSpacing.paddingAll16,
       child: Row(
         children: [
-          GymAvatar(
-            name: member.name,
-            imageUrl: member.imageUrl,
-            size: 48,
-          ),
+          GymAvatar(name: member.name, imageUrl: member.imageUrl, size: 48),
           const SizedBox(width: AppSpacing.s16),
           Expanded(
             child: Column(
@@ -63,33 +56,95 @@ class MemberListTile extends StatelessWidget {
                     const SizedBox(width: AppSpacing.s4),
                     Text(
                       member.phone,
-                      style: AppText.bodyMedium.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                      style: AppText.bodyMedium.copyWith(color: AppColors.textSecondary),
                     ),
                   ],
                 ),
-                if (member.activeSubscription != null) ...[
+                if (sub != null) ...[
                   const SizedBox(height: AppSpacing.s8),
-                  Text(
-                    'Subscription: ${member.activeSubscription!.id.substring(0, 8)}',
-                    style: AppText.labelSmall.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    children: [
+                      _BillingBadge(billingType: sub.billingType),
+                      const SizedBox(width: AppSpacing.s8),
+                      Expanded(
+                        child: _BillingStatusChip(sub: sub),
+                      ),
+                    ],
                   ),
                 ],
               ],
             ),
           ),
           const SizedBox(width: AppSpacing.s8),
-          Icon(
-            PhosphorIcons.caretRight(),
-            size: 20,
-            color: AppColors.textHint,
-          ),
+          Icon(PhosphorIcons.caretRight(), size: 20, color: AppColors.textHint),
         ],
       ),
     );
+  }
+}
+
+class _BillingBadge extends StatelessWidget {
+  const _BillingBadge({required this.billingType});
+  final String billingType;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPrepaid = billingType == 'prepaid';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: (isPrepaid ? AppColors.success : AppColors.info).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        isPrepaid ? 'Prepaid' : 'Postpaid',
+        style: AppText.labelSmall.copyWith(
+          color: isPrepaid ? AppColors.success : AppColors.info,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _BillingStatusChip extends StatelessWidget {
+  const _BillingStatusChip({required this.sub});
+  final MemberSubscription sub;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = _resolve(sub);
+    return Text(
+      label,
+      style: AppText.labelSmall.copyWith(color: color, fontSize: 10),
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  static (String, Color) _resolve(MemberSubscription sub) {
+    switch (sub.billingStatus) {
+      case 'paid':
+        return ('Fully Paid', AppColors.success);
+      case 'prepaid_overdue':
+        final days = sub.daysUntilDue?.abs() ?? 0;
+        return ('Overdue by $days days', AppColors.error);
+      case 'prepaid_due':
+        final days = sub.daysUntilDue ?? 0;
+        return (days == 0 ? 'Due today' : 'Due in $days days', AppColors.warning);
+      case 'prepaid_pending':
+        return ('Payment pending', AppColors.textSecondary);
+      case 'postpaid_window_open':
+        final days = sub.daysUntilDue ?? 0;
+        return ('Pay now · $days days left', AppColors.warning);
+      case 'postpaid_overdue':
+        final days = (sub.daysUntilDue ?? 0).abs();
+        return ('Overdue by $days days', AppColors.error);
+      case 'postpaid_not_due_yet':
+        final days = sub.daysUntilDue ?? 0;
+        return ('Due in $days days', AppColors.textSecondary);
+      default:
+        return ('Active', AppColors.primary);
+    }
   }
 }

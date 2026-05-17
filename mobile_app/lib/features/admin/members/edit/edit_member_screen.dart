@@ -30,6 +30,7 @@ class _EditMemberScreenState extends ConsumerState<EditMemberScreen> {
       await ref.read(memberRepositoryProvider).update(widget.id, {
         'name': data.name,
         'phone': data.phone,
+        'gender': data.gender,
         if (data.goal != null) 'goal': data.goal,
         if (data.currentWeight != null) 'current_weight': data.currentWeight,
         if (data.heightCm != null) 'height_cm': data.heightCm,

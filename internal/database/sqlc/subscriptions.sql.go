@@ -194,24 +194,27 @@ func (q *Queries) ReplaceActiveSubscriptions(ctx context.Context, memberID uuid.
 const updateActiveSubscription = `-- name: UpdateActiveSubscription :one
 UPDATE subscriptions
 SET final_price = $1,
-    end_date    = $2,
-    note        = $3
-WHERE member_id = $4
+    start_date  = $2,
+    end_date    = $3,
+    note        = $4
+WHERE member_id = $5
   AND status    = 'active'
 RETURNING id, member_id, plan_template_id, start_date, end_date, final_price, note, status, created_at
 `
 
 type UpdateActiveSubscriptionParams struct {
 	FinalPrice float64        `json:"final_price"`
+	StartDate  time.Time      `json:"start_date"`
 	EndDate    time.Time      `json:"end_date"`
 	Note       sql.NullString `json:"note"`
 	MemberID   uuid.UUID      `json:"member_id"`
 }
 
-// In-place patch of the current active subscription (price, end date, note).
+// In-place patch of the current active subscription (price, start date, end date, note).
 func (q *Queries) UpdateActiveSubscription(ctx context.Context, arg UpdateActiveSubscriptionParams) (Subscription, error) {
 	row := q.db.QueryRowContext(ctx, updateActiveSubscription,
 		arg.FinalPrice,
+		arg.StartDate,
 		arg.EndDate,
 		arg.Note,
 		arg.MemberID,

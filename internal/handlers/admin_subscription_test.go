@@ -117,7 +117,7 @@ func TestUpdateActive_Success(t *testing.T) {
 
 	resp := doRequest(t, app, http.MethodPatch,
 		"/members/"+memberID.String()+"/subscriptions/active",
-		map[string]any{"end_date": "2026-12-31", "final_price": 1200},
+		map[string]any{"start_date": "2026-01-01", "end_date": "2026-12-31", "final_price": 1200},
 	)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
@@ -126,7 +126,7 @@ func TestUpdateActive_NotFound(t *testing.T) {
 	app := newSubTestApp(&fakeSubSvc{updateErr: services.ErrNotFound})
 	resp := doRequest(t, app, http.MethodPatch,
 		"/members/"+uuid.NewString()+"/subscriptions/active",
-		map[string]any{"end_date": "2026-12-31", "final_price": 1200},
+		map[string]any{"start_date": "2026-01-01", "end_date": "2026-12-31", "final_price": 1200},
 	)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }

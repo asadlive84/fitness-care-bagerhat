@@ -23,6 +23,7 @@ class _CreateMemberScreenState extends ConsumerState<CreateMemberScreen> {
       final result = await ref.read(memberRepositoryProvider).create(
             name: data.name,
             phone: data.phone,
+            gender: data.gender,
             goal: data.goal,
             currentWeight: data.currentWeight,
             heightCm: data.heightCm,

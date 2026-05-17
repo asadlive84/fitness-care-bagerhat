@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -22,7 +21,7 @@ type memberProfileSvc interface {
 }
 
 type memberSubSvc interface {
-	GetActiveSubscription(ctx context.Context, memberID uuid.UUID) (*models.Subscription, error)
+	GetActiveSubscriptionEnriched(ctx context.Context, memberID uuid.UUID) (*models.EnrichedSubscription, error)
 }
 
 type memberPaymentSvc interface {
@@ -175,18 +174,13 @@ func (h *MemberHandler) GetActiveSubscription(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "UNAUTHORIZED", "Invalid token", nil)
 	}
 
-	sub, err := h.subs.GetActiveSubscription(c.UserContext(), id)
+	sub, err := h.subs.GetActiveSubscriptionEnriched(c.UserContext(), id)
 	if err != nil {
-		if errors.Is(err, services.ErrNotFound) {
-			// Return 200 with null data so the mobile client never crashes on a
-			// missing subscription — the client checks data == null instead of
-			// catching a 404 error.
-			return utils.SuccessResponse(c, fiber.StatusOK, nil)
-		}
 		h.log.ErrorContext(c.UserContext(), "get active subscription", "error", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Could not fetch subscription", nil)
 	}
-
+	// sub == nil means no active subscription — return 200 with null data so
+	// the mobile client never crashes on a missing subscription.
 	return utils.SuccessResponse(c, fiber.StatusOK, sub)
 }
 

@@ -73,7 +73,7 @@ type Querier interface {
 	ReplaceActiveSubscriptions(ctx context.Context, memberID uuid.UUID) error
 	// Move a notification past the quiet window without changing its status.
 	RescheduleNotification(ctx context.Context, arg RescheduleNotificationParams) error
-	// In-place patch of the current active subscription (price, end date, note).
+	// In-place patch of the current active subscription (price, start date, end date, note).
 	UpdateActiveSubscription(ctx context.Context, arg UpdateActiveSubscriptionParams) (Subscription, error)
 	UpdateAdminPassword(ctx context.Context, arg UpdateAdminPasswordParams) error
 	UpdateMember(ctx context.Context, arg UpdateMemberParams) (Member, error)

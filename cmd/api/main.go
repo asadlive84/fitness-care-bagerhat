@@ -118,7 +118,7 @@ func main() {
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
 	authHandler          := handlers.NewAuthHandler(authSvc, log)
-	adminMemberHandler   := handlers.NewAdminMemberHandler(memberSvc, log)
+	adminMemberHandler   := handlers.NewAdminMemberHandler(memberSvc, subSvc, log)
 	adminPlanHandler     := handlers.NewAdminPlanHandler(planSvc, log)
 	adminSubHandler      := handlers.NewAdminSubscriptionHandler(subSvc, log)
 	adminPaymentHandler  := handlers.NewAdminPaymentHandler(paymentSvc, log)

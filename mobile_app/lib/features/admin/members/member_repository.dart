@@ -51,6 +51,7 @@ class MemberRepository {
   Future<CreateMemberResult> create({
     required String name,
     required String phone,
+    required String gender,
     String? goal,
     double? currentWeight,
     double? heightCm,
@@ -70,6 +71,7 @@ class MemberRepository {
       data: {
         'name': name,
         'phone': phone,
+        'gender': gender,
         if (goal != null && goal.isNotEmpty) 'goal': goal,
         if (currentWeight != null) 'current_weight': currentWeight,
         if (heightCm != null) 'height_cm': heightCm,
@@ -117,14 +119,25 @@ class MemberRepository {
     required double finalPrice,
     DateTime? startDate,
     String? note,
+    String billingType = 'prepaid',
+    DateTime? prepaidDueDate,
+    int? postpaidGraceBefore,
+    int? postpaidGraceAfter,
   }) async {
     final response = await _apiClient.post(
       '/api/v1/admin/members/$memberId/subscriptions',
       data: {
         'plan_template_id': planId,
         'final_price': finalPrice,
+        'billing_type': billingType,
         if (startDate != null) 'start_date': startDate.toIso8601String().split('T')[0],
         if (note != null && note.isNotEmpty) 'note': note,
+        if (billingType == 'prepaid' && prepaidDueDate != null)
+          'prepaid_due_date': prepaidDueDate.toIso8601String().split('T')[0],
+        if (billingType == 'postpaid' && postpaidGraceBefore != null)
+          'postpaid_grace_before': postpaidGraceBefore,
+        if (billingType == 'postpaid' && postpaidGraceAfter != null)
+          'postpaid_grace_after': postpaidGraceAfter,
       },
     );
     final apiResponse = ApiResponse.fromJson(
@@ -146,16 +159,29 @@ class MemberRepository {
 
   Future<MemberSubscription> updateActiveSubscription({
     required String memberId,
+    required DateTime startDate,
     required DateTime endDate,
     required double finalPrice,
     String? note,
+    String billingType = 'prepaid',
+    DateTime? prepaidDueDate,
+    int? postpaidGraceBefore,
+    int? postpaidGraceAfter,
   }) async {
     final response = await _apiClient.patch(
       '/api/v1/admin/members/$memberId/subscriptions/active',
       data: {
+        'start_date': startDate.toIso8601String().split('T')[0],
         'end_date': endDate.toIso8601String().split('T')[0],
         'final_price': finalPrice,
+        'billing_type': billingType,
         if (note != null && note.isNotEmpty) 'note': note,
+        if (billingType == 'prepaid' && prepaidDueDate != null)
+          'prepaid_due_date': prepaidDueDate.toIso8601String().split('T')[0],
+        if (billingType == 'postpaid' && postpaidGraceBefore != null)
+          'postpaid_grace_before': postpaidGraceBefore,
+        if (billingType == 'postpaid' && postpaidGraceAfter != null)
+          'postpaid_grace_after': postpaidGraceAfter,
       },
     );
     final apiResponse = ApiResponse.fromJson(

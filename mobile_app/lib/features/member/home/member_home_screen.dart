@@ -10,10 +10,10 @@ import 'package:fitness_care_bagerhat/features/admin/members/member.dart';
 import 'package:fitness_care_bagerhat/features/member/home/member_home_controller.dart';
 import 'package:fitness_care_bagerhat/features/member/home/member_home_state.dart';
 import 'package:fitness_care_bagerhat/features/member/home/widgets/member_home_widgets.dart';
-import 'package:fitness_care_bagerhat/features/member/payments/member_payment_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class MemberHomeScreen extends ConsumerWidget {
@@ -98,6 +98,13 @@ class _Content extends StatelessWidget {
                     : 'years',
                 color: AppColors.success,
               ),
+              const SizedBox(width: AppSpacing.s12),
+              MemberStatMini(
+                label: 'Gender',
+                value: data.member.gender,
+                unit: '',
+                color: AppColors.info,
+              ),
             ],
           ),
 
@@ -144,12 +151,12 @@ class _Greeting extends StatelessWidget {
   }
 }
 
-class _SubscriptionHero extends ConsumerWidget {
+class _SubscriptionHero extends StatelessWidget {
   const _SubscriptionHero({required this.subscription});
   final MemberSubscription? subscription;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     if (subscription == null) {
       return Container(
         width: double.infinity,
@@ -176,17 +183,20 @@ class _SubscriptionHero extends ConsumerWidget {
     }
 
     final sub = subscription!;
-    final paidAsync = ref.watch(memberActiveSubPaidProvider);
     final total = sub.finalPrice;
-    final paid = paidAsync.valueOrNull ?? 0.0;
-    final due = total - paid;
+    final paid = sub.moneyPaid;
+    final due = sub.moneyLeft;
     final progress = total > 0 ? (paid / total).clamp(0.0, 1.0) : 0.0;
     final isFullyPaid = due <= 0;
+    final isPrepaid = sub.billingType == 'prepaid';
 
+    final planLabel = sub.planName.isNotEmpty ? sub.planName : (sub.note ?? 'Membership Plan');
     final durationDays = sub.endDate.difference(sub.startDate).inDays;
     final durationText = durationDays >= 28
         ? '${(durationDays / 30).round()} Month${(durationDays / 30).round() > 1 ? 's' : ''}'
         : '$durationDays Days';
+
+    final fmt = DateFormat('dd MMM yyyy');
 
     return GestureDetector(
       onTap: () => context.push(Routes.memberPayments),
@@ -211,6 +221,7 @@ class _SubscriptionHero extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Header row: plan name + billing type badge + amount ──────
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,27 +231,43 @@ class _SubscriptionHero extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        sub.note ?? 'Membership Plan',
+                        planLabel,
                         style: AppText.titleLarge.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '$durationText Plan · Exp ${sub.endDate.toDisplay()}',
+                        '$durationText · Exp ${sub.endDate.toDisplay()}',
                         style: AppText.labelSmall.copyWith(color: AppColors.textSecondary),
                       ),
                     ],
                   ),
                 ),
-                Text(
-                  total.toBDT(),
-                  style: AppText.titleLarge.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      total.toBDT(),
+                      style: AppText.titleLarge.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _BillingBadge(billingType: sub.billingType),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: AppSpacing.s24),
+
+            // ── Billing-specific info row ────────────────────────────────
+            if (!isFullyPaid) ...[
+              const SizedBox(height: AppSpacing.s12),
+              _BillingInfoRow(sub: sub, fmt: fmt, isPrepaid: isPrepaid),
+            ],
+
+            const SizedBox(height: AppSpacing.s20),
+
+            // ── Progress bar ─────────────────────────────────────────────
             ClipRRect(
               borderRadius: AppSpacing.rFull,
               child: LinearProgressIndicator(
@@ -259,7 +286,7 @@ class _SubscriptionHero extends ConsumerWidget {
                 _MinimalStat(label: 'PAID', value: paid.toBDT(), color: AppColors.success),
                 _MinimalStat(
                   label: 'DUE',
-                  value: (due < 0 ? 0 : due).toBDT(),
+                  value: due.toBDT(),
                   color: isFullyPaid ? AppColors.textHint : AppColors.error,
                   crossAxisAlignment: CrossAxisAlignment.end,
                 ),
@@ -269,6 +296,98 @@ class _SubscriptionHero extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// Green Prepaid / Blue Postpaid badge
+class _BillingBadge extends StatelessWidget {
+  const _BillingBadge({required this.billingType});
+  final String billingType;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPrepaid = billingType == 'prepaid';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: (isPrepaid ? AppColors.success : AppColors.info).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        isPrepaid ? 'Prepaid' : 'Postpaid',
+        style: AppText.labelSmall.copyWith(
+          color: isPrepaid ? AppColors.success : AppColors.info,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+/// Billing-specific messaging row shown below the header.
+class _BillingInfoRow extends StatelessWidget {
+  const _BillingInfoRow({
+    required this.sub,
+    required this.fmt,
+    required this.isPrepaid,
+  });
+  final MemberSubscription sub;
+  final DateFormat fmt;
+  final bool isPrepaid;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, text, color) = _resolve();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: AppSpacing.r12,
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: AppText.bodySmall.copyWith(color: color, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  (IconData, String, Color) _resolve() {
+    final days = sub.daysUntilDue;
+    switch (sub.billingStatus) {
+      case 'prepaid_overdue':
+        return (PhosphorIcons.warning(), 'Overdue by ${days?.abs() ?? 0} days', AppColors.error);
+      case 'prepaid_due':
+        if (sub.prepaidDueDate != null) {
+          return (PhosphorIcons.calendarDot(), 'Payment due by ${fmt.format(sub.prepaidDueDate!)}', AppColors.warning);
+        }
+        return (PhosphorIcons.clock(), 'Due in ${days ?? 0} days', AppColors.warning);
+      case 'prepaid_pending':
+        return (PhosphorIcons.info(), 'Payment pending', AppColors.textSecondary);
+      case 'postpaid_not_due_yet':
+        return (PhosphorIcons.clock(), 'Payment window opens in ${days ?? 0} days', AppColors.textSecondary);
+      case 'postpaid_window_open':
+        final start = sub.paymentWindowStart != null ? fmt.format(sub.paymentWindowStart!) : '';
+        final end = sub.paymentWindowEnd != null ? fmt.format(sub.paymentWindowEnd!) : '';
+        final closing = days ?? 0;
+        return (
+          PhosphorIcons.bellRinging(),
+          'Payment window: $start – $end · Closes in $closing days',
+          AppColors.warning,
+        );
+      case 'postpaid_overdue':
+        return (PhosphorIcons.warning(), 'Grace period ended ${(days ?? 0).abs()} days ago', AppColors.error);
+      default:
+        return (PhosphorIcons.info(), 'Tap to view payment history', AppColors.primary);
+    }
   }
 }
 

@@ -9,6 +9,7 @@ const kBloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 // ── Religion options ──────────────────────────────────────────────────────────
 const kReligions = ['Islam', 'Hinduism', 'Christianity', 'Buddhism', 'Others'];
+const kGenders = ['Male', 'Female', 'Other'];
 
 // ── Hobby options ─────────────────────────────────────────────────────────────
 const kHobbies = [
@@ -54,7 +55,7 @@ class Member {
     this.mustChangePassword = false,
     this.activeSubscription,
     this.imageUrl,
-    this.gender,
+    required this.gender,
   });
 
   final String id;
@@ -77,7 +78,7 @@ class Member {
   final bool mustChangePassword;
   final MemberSubscription? activeSubscription;
   final String? imageUrl;
-  final String? gender;
+  final String gender;
 
   // ── Computed ────────────────────────────────────────────────────────────────
 
@@ -180,7 +181,11 @@ class Member {
                 json['active_subscription'] as Map<String, dynamic>,
               ),
         imageUrl: json['imageUrl'] as String?,
-        gender: json['gender'] as String?,
+        gender: (json['gender'] != null && 
+                (json['gender'] as String).isNotEmpty && 
+                kGenders.contains(json['gender']))
+            ? json['gender'] as String
+            : 'Other',
       );
 
   Map<String, dynamic> toJson() => {
@@ -230,6 +235,7 @@ class Member {
     bool? mustChangePassword,
     Object? activeSubscription = _absent,
     Object? imageUrl = _absent,
+    String? gender,
   }) =>
       Member(
         id: id ?? this.id,
@@ -271,6 +277,7 @@ class Member {
             : activeSubscription as MemberSubscription?,
         imageUrl:
             imageUrl == _absent ? this.imageUrl : imageUrl as String?,
+        gender: gender ?? this.gender,
       );
 }
 
@@ -284,9 +291,21 @@ class MemberSubscription with _$MemberSubscription {
   const factory MemberSubscription({
     required String id,
     @JsonKey(name: 'plan_template_id') required String planId,
+    @JsonKey(name: 'plan_name') @Default('') String planName,
+    @JsonKey(name: 'plan_price') @Default(0.0) double planPrice,
     @JsonKey(name: 'start_date') required DateTime startDate,
     @JsonKey(name: 'end_date') required DateTime endDate,
     @JsonKey(name: 'final_price') required double finalPrice,
+    @JsonKey(name: 'money_paid') @Default(0.0) double moneyPaid,
+    @JsonKey(name: 'money_left') @Default(0.0) double moneyLeft,
+    @JsonKey(name: 'billing_type') @Default('prepaid') String billingType,
+    @JsonKey(name: 'prepaid_due_date') DateTime? prepaidDueDate,
+    @JsonKey(name: 'postpaid_grace_before') @Default(5) int postpaidGraceBefore,
+    @JsonKey(name: 'postpaid_grace_after') @Default(5) int postpaidGraceAfter,
+    @JsonKey(name: 'billing_status') @Default('') String billingStatus,
+    @JsonKey(name: 'payment_window_start') DateTime? paymentWindowStart,
+    @JsonKey(name: 'payment_window_end') DateTime? paymentWindowEnd,
+    @JsonKey(name: 'days_until_due') int? daysUntilDue,
     String? note,
     @Default('active') String status,
   }) = _MemberSubscription;

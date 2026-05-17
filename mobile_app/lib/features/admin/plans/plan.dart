@@ -10,6 +10,7 @@ class Plan with _$Plan {
     required String name,
     @JsonKey(name: 'default_price') required double defaultPrice,
     @JsonKey(name: 'duration_days') required int durationDays,
+    @JsonKey(name: 'billing_type') @Default('prepaid') String billingType,
     @JsonKey(name: 'member_count') int? memberCount,
     DateTime? createdAt,
   }) = _Plan;

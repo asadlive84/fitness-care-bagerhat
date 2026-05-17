@@ -20,20 +20,20 @@ import (
 // ── fake plan service ─────────────────────────────────────────────────────────
 
 type fakePlanSvc struct {
-	createResult *models.PlanTemplate
-	createErr    error
-	listResult   []*models.PlanTemplate
-	listErr      error
-	updateResult *models.PlanTemplate
-	updateErr    error
-	deleteErr    error
+	createResult      *models.PlanTemplate
+	createErr         error
+	listWithSubResult []*models.PlanWithSubscribers
+	listErr           error
+	updateResult      *models.PlanTemplate
+	updateErr         error
+	deleteErr         error
 }
 
 func (f *fakePlanSvc) CreatePlan(_ context.Context, _ services.CreatePlanRequest) (*models.PlanTemplate, error) {
 	return f.createResult, f.createErr
 }
-func (f *fakePlanSvc) ListPlans(_ context.Context) ([]*models.PlanTemplate, error) {
-	return f.listResult, f.listErr
+func (f *fakePlanSvc) ListPlansWithSubscribers(_ context.Context) ([]*models.PlanWithSubscribers, error) {
+	return f.listWithSubResult, f.listErr
 }
 func (f *fakePlanSvc) UpdatePlan(_ context.Context, _ uuid.UUID, _ services.UpdatePlanRequest) (*models.PlanTemplate, error) {
 	return f.updateResult, f.updateErr
@@ -86,8 +86,11 @@ func TestCreatePlan_ValidationError(t *testing.T) {
 }
 
 func TestListPlans_Success(t *testing.T) {
-	plans := []*models.PlanTemplate{samplePlan(), samplePlan()}
-	app := newPlanTestApp(&fakePlanSvc{listResult: plans})
+	plans := []*models.PlanWithSubscribers{
+		{PlanTemplate: *samplePlan(), Subscribers: []models.PlanSubscriber{}},
+		{PlanTemplate: *samplePlan(), Subscribers: []models.PlanSubscriber{}},
+	}
+	app := newPlanTestApp(&fakePlanSvc{listWithSubResult: plans})
 
 	resp := doRequest(t, app, http.MethodGet, "/plans", nil)
 	require.Equal(t, http.StatusOK, resp.StatusCode)

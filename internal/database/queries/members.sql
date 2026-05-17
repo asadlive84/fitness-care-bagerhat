@@ -1,6 +1,6 @@
 -- name: CreateMember :one
-INSERT INTO members (id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password)
-VALUES (@id, @name, @phone, @password_hash, @goal, @join_date, @current_weight, @status, @must_change_password)
+INSERT INTO members (id, name, phone, password_hash, gender, goal, join_date, current_weight, status, must_change_password)
+VALUES (@id, @name, @phone, @password_hash, @gender, @goal, @join_date, @current_weight, @status, @must_change_password)
 RETURNING *;
 
 -- name: GetMemberByID :one
@@ -36,6 +36,7 @@ WHERE
 UPDATE members
 SET name           = @name,
     phone          = @phone,
+    gender         = @gender,
     goal           = @goal,
     current_weight = @current_weight,
     updated_at     = NOW()

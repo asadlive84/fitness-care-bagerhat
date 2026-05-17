@@ -15,6 +15,7 @@ type Member struct {
 	Phone              string     `json:"phone"`
 	Goal               *string    `json:"goal,omitempty"`
 	JoinDate           time.Time  `json:"join_date"`
+	Gender             string     `json:"gender"`
 	CurrentWeight      *float64   `json:"current_weight,omitempty"`
 	HeightCm           *float64   `json:"height_cm,omitempty"`
 	DateOfBirth        *time.Time `json:"date_of_birth,omitempty"`

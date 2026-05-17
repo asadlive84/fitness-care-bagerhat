@@ -14,7 +14,7 @@ import (
 
 type adminPlanSvc interface {
 	CreatePlan(ctx context.Context, req services.CreatePlanRequest) (*models.PlanTemplate, error)
-	ListPlans(ctx context.Context) ([]*models.PlanTemplate, error)
+	ListPlansWithSubscribers(ctx context.Context) ([]*models.PlanWithSubscribers, error)
 	UpdatePlan(ctx context.Context, id uuid.UUID, req services.UpdatePlanRequest) (*models.PlanTemplate, error)
 	DeletePlan(ctx context.Context, id uuid.UUID) error
 }
@@ -41,12 +41,14 @@ type createPlanReq struct {
 	Name         string  `json:"name"          validate:"required,min=2,max=100"`
 	DurationDays int32   `json:"duration_days" validate:"required,min=1,max=3650"`
 	DefaultPrice float64 `json:"default_price" validate:"gt=0"` // price must be positive
+	BillingType  string  `json:"billing_type"  validate:"omitempty,oneof=prepaid postpaid"`
 }
 
 type updatePlanReq struct {
 	Name         string  `json:"name"          validate:"required,min=2,max=100"`
 	DurationDays int32   `json:"duration_days" validate:"required,min=1,max=3650"`
 	DefaultPrice float64 `json:"default_price" validate:"gt=0"`
+	BillingType  string  `json:"billing_type"  validate:"omitempty,oneof=prepaid postpaid"`
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -70,6 +72,7 @@ func (h *AdminPlanHandler) CreatePlan(c *fiber.Ctx) error {
 		Name:         req.Name,
 		DurationDays: req.DurationDays,
 		DefaultPrice: req.DefaultPrice,
+		BillingType:  req.BillingType,
 	})
 	if err != nil {
 		h.log.ErrorContext(c.UserContext(), "create plan", "error", err)
@@ -88,7 +91,7 @@ func (h *AdminPlanHandler) CreatePlan(c *fiber.Ctx) error {
 // @Success     200 {object} map[string]any
 // @Router      /api/v1/admin/plans [get]
 func (h *AdminPlanHandler) ListPlans(c *fiber.Ctx) error {
-	plans, err := h.svc.ListPlans(c.UserContext())
+	plans, err := h.svc.ListPlansWithSubscribers(c.UserContext())
 	if err != nil {
 		h.log.ErrorContext(c.UserContext(), "list plans", "error", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError,
@@ -123,6 +126,7 @@ func (h *AdminPlanHandler) UpdatePlan(c *fiber.Ctx) error {
 		Name:         req.Name,
 		DurationDays: req.DurationDays,
 		DefaultPrice: req.DefaultPrice,
+		BillingType:  req.BillingType,
 	})
 	if err != nil {
 		if errors.Is(err, services.ErrNotFound) {

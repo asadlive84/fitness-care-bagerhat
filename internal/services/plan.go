@@ -16,6 +16,7 @@ type CreatePlanRequest struct {
 	Name         string
 	DurationDays int32
 	DefaultPrice float64
+	BillingType  string // prepaid | postpaid; defaults to "prepaid" if empty
 }
 
 // UpdatePlanRequest carries validated fields for a plan update.
@@ -23,6 +24,7 @@ type UpdatePlanRequest struct {
 	Name         string
 	DurationDays int32
 	DefaultPrice float64
+	BillingType  string // prepaid | postpaid; defaults to "prepaid" if empty
 }
 
 // PlanService handles plan-template business logic.
@@ -37,11 +39,16 @@ func NewPlanService(plans repositories.PlanRepository) *PlanService {
 
 // CreatePlan creates a new plan template.
 func (s *PlanService) CreatePlan(ctx context.Context, req CreatePlanRequest) (*models.PlanTemplate, error) {
+	billingType := req.BillingType
+	if billingType == "" {
+		billingType = "prepaid"
+	}
 	plan := &models.PlanTemplate{
 		ID:           uuid.New(),
 		Name:         req.Name,
 		DurationDays: req.DurationDays,
 		DefaultPrice: req.DefaultPrice,
+		BillingType:  billingType,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -56,6 +63,16 @@ func (s *PlanService) ListPlans(ctx context.Context) ([]*models.PlanTemplate, er
 	plans, err := s.plans.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list plans: %w", err)
+	}
+	return plans, nil
+}
+
+// ListPlansWithSubscribers returns all plans with live active-subscriber details
+// and per-subscriber payment aggregation. Never cached.
+func (s *PlanService) ListPlansWithSubscribers(ctx context.Context) ([]*models.PlanWithSubscribers, error) {
+	plans, err := s.plans.ListWithSubscribers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list plans with subscribers: %w", err)
 	}
 	return plans, nil
 }
@@ -85,6 +102,9 @@ func (s *PlanService) UpdatePlan(ctx context.Context, id uuid.UUID, req UpdatePl
 	plan.Name = req.Name
 	plan.DurationDays = req.DurationDays
 	plan.DefaultPrice = req.DefaultPrice
+	if req.BillingType != "" {
+		plan.BillingType = req.BillingType
+	}
 
 	if err := s.plans.Update(ctx, plan); err != nil {
 		return nil, fmt.Errorf("update plan: %w", err)

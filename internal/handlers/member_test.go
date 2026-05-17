@@ -33,11 +33,11 @@ func (f *fakeProfileSvc) UpdateMember(_ context.Context, _ uuid.UUID, _ services
 }
 
 type fakeMemberSubSvc struct {
-	result *models.Subscription
+	result *models.EnrichedSubscription
 	err    error
 }
 
-func (f *fakeMemberSubSvc) GetActiveSubscription(_ context.Context, _ uuid.UUID) (*models.Subscription, error) {
+func (f *fakeMemberSubSvc) GetActiveSubscriptionEnriched(_ context.Context, _ uuid.UUID) (*models.EnrichedSubscription, error) {
 	return f.result, f.err
 }
 
@@ -165,17 +165,21 @@ func TestUpdateProfile_ValidationError(t *testing.T) {
 }
 
 func TestGetActiveSubscription_Success(t *testing.T) {
-	sub := sampleSubscription(uuid.New())
+	sub := &models.EnrichedSubscription{
+		ID: uuid.New(), PlanName: "Monthly", PlanPrice: 500, FinalPrice: 500,
+		StartDate: time.Now(), EndDate: time.Now().AddDate(0, 1, 0), Status: "active",
+	}
 	app := defaultMemberApp(&fakeProfileSvc{}, &fakeMemberSubSvc{result: sub}, &fakeMemberPaymentSvc{}, &fakeWeightSvc{}, &fakeWorkoutSvc{}, &fakeDietSvc{})
 
 	resp := doRequest(t, app, http.MethodGet, "/member/subscription", nil)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
-func TestGetActiveSubscription_NotFound(t *testing.T) {
-	app := defaultMemberApp(&fakeProfileSvc{}, &fakeMemberSubSvc{err: services.ErrNotFound}, &fakeMemberPaymentSvc{}, &fakeWeightSvc{}, &fakeWorkoutSvc{}, &fakeDietSvc{})
+func TestGetActiveSubscription_None(t *testing.T) {
+	// nil result = 200 with null data (no active subscription)
+	app := defaultMemberApp(&fakeProfileSvc{}, &fakeMemberSubSvc{result: nil}, &fakeMemberPaymentSvc{}, &fakeWeightSvc{}, &fakeWorkoutSvc{}, &fakeDietSvc{})
 	resp := doRequest(t, app, http.MethodGet, "/member/subscription", nil)
-	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
 func TestGetPayments_Success(t *testing.T) {

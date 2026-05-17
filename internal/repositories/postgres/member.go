@@ -24,7 +24,7 @@ func NewMemberRepo(db *sql.DB) *MemberRepo {
 // memberSelectCols is the canonical column list used by all raw member SELECTs.
 // password_hash is deliberately excluded — use GetMemberCredentials for auth.
 const memberSelectCols = `
-	id, name, phone, goal, join_date,
+	id, name, phone, gender, goal, join_date,
 	current_weight, height_cm, date_of_birth, religion, blood_group,
 	hobbies, present_address, permanent_address, occupation, nid,
 	emergency_phone, status, must_change_password, created_at, updated_at`
@@ -47,7 +47,7 @@ func scanMember(scan func(dest ...interface{}) error) (*models.Member, error) {
 	)
 	m := &models.Member{}
 	err := scan(
-		&m.ID, &m.Name, &m.Phone, &goal, &m.JoinDate,
+		&m.ID, &m.Name, &m.Phone, &m.Gender, &goal, &m.JoinDate,
 		&currentWeight, &heightCm, &dateOfBirth, &religion, &bloodGroup,
 		&hobbies, &presentAddress, &permanentAddress, &occupation, &nidVal,
 		&emergencyPhone, &m.Status, &m.MustChangePassword, &m.CreatedAt, &m.UpdatedAt,
@@ -102,17 +102,17 @@ func (r *MemberRepo) Create(ctx context.Context, m *models.Member, passwordHash 
 	}
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO members (
-			id, name, phone, password_hash, goal, join_date,
+			id, name, phone, password_hash, gender, goal, join_date,
 			current_weight, height_cm, date_of_birth, religion, blood_group,
 			hobbies, present_address, permanent_address, occupation, nid,
 			emergency_phone, status, must_change_password
 		) VALUES (
-			$1,$2,$3,$4,$5,$6,
-			$7,$8,$9,$10,$11,
-			$12,$13,$14,$15,$16,
-			$17,$18,$19
+			$1,$2,$3,$4,$5,$6,$7,
+			$8,$9,$10,$11,$12,
+			$13,$14,$15,$16,$17,
+			$18,$19,$20
 		)`,
-		m.ID, m.Name, m.Phone, passwordHash, nullString(m.Goal), m.JoinDate,
+		m.ID, m.Name, m.Phone, passwordHash, m.Gender, nullString(m.Goal), m.JoinDate,
 		nullFloat64(m.CurrentWeight), nullFloat64(m.HeightCm), dob, nullString(m.Religion), nullString(m.BloodGroup),
 		pq.Array(m.Hobbies), nullString(m.PresentAddress), nullString(m.PermanentAddress), nullString(m.Occupation), nullString(m.NID),
 		nullString(m.EmergencyPhone), m.Status, m.MustChangePassword,
@@ -166,21 +166,22 @@ func (r *MemberRepo) Update(ctx context.Context, m *models.Member) error {
 		UPDATE members SET
 			name              = $1,
 			phone             = $2,
-			goal              = $3,
-			current_weight    = $4,
-			height_cm         = $5,
-			date_of_birth     = $6,
-			religion          = $7,
-			blood_group       = $8,
-			hobbies           = $9,
-			present_address   = $10,
-			permanent_address = $11,
-			occupation        = $12,
-			nid               = $13,
-			emergency_phone   = $14,
+			gender            = $3,
+			goal              = $4,
+			current_weight    = $5,
+			height_cm         = $6,
+			date_of_birth     = $7,
+			religion          = $8,
+			blood_group       = $9,
+			hobbies           = $10,
+			present_address   = $11,
+			permanent_address = $12,
+			occupation        = $13,
+			nid               = $14,
+			emergency_phone   = $15,
 			updated_at        = NOW()
-		WHERE id = $15`,
-		m.Name, m.Phone, nullString(m.Goal), nullFloat64(m.CurrentWeight), nullFloat64(m.HeightCm),
+		WHERE id = $16`,
+		m.Name, m.Phone, m.Gender, nullString(m.Goal), nullFloat64(m.CurrentWeight), nullFloat64(m.HeightCm),
 		dob, nullString(m.Religion), nullString(m.BloodGroup), pq.Array(m.Hobbies),
 		nullString(m.PresentAddress), nullString(m.PermanentAddress), nullString(m.Occupation),
 		nullString(m.NID), nullString(m.EmergencyPhone), m.ID,

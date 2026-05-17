@@ -70,12 +70,21 @@ type PlanRepository interface {
 	List(ctx context.Context) ([]*models.PlanTemplate, error)
 	Update(ctx context.Context, p *models.PlanTemplate) error
 	Delete(ctx context.Context, id uuid.UUID) error
+
+	// ListWithSubscribers returns all plans with their active subscriber details
+	// and per-subscriber payment aggregation. Not cached — financial data must be live.
+	ListWithSubscribers(ctx context.Context) ([]*models.PlanWithSubscribers, error)
 }
 
 // SubscriptionRepository covers subscriptions persistence.
 type SubscriptionRepository interface {
 	Create(ctx context.Context, s *models.Subscription) error
 	GetActiveByMemberID(ctx context.Context, memberID uuid.UUID) (*models.Subscription, error)
+
+	// GetActiveEnrichedByMemberID returns the active subscription joined with plan
+	// info and payment aggregation. Returns nil, nil when no active sub exists.
+	GetActiveEnrichedByMemberID(ctx context.Context, memberID uuid.UUID) (*models.EnrichedSubscription, error)
+
 	ListByMemberID(ctx context.Context, memberID uuid.UUID) ([]*models.Subscription, error)
 
 	// UpdateStatus changes subscription status. memberID is required so the
@@ -85,9 +94,9 @@ type SubscriptionRepository interface {
 	// ReplaceActive marks all active subscriptions for a member as 'replaced'.
 	ReplaceActive(ctx context.Context, memberID uuid.UUID) error
 
-	// UpdateActive updates price, end_date, and note of the current active
-	// subscription in place. Returns ErrNotFound if no active subscription exists.
-	UpdateActive(ctx context.Context, memberID uuid.UUID, endDate time.Time, finalPrice float64, note *string) (*models.Subscription, error)
+	// UpdateActive updates price, start_date, end_date, note, and billing fields of the
+	// current active subscription in place. Returns ErrNotFound if no active subscription exists.
+	UpdateActive(ctx context.Context, memberID uuid.UUID, startDate time.Time, endDate time.Time, finalPrice float64, note *string, billingType string, prepaidDueDate *time.Time, postpaidGraceBefore int, postpaidGraceAfter int) (*models.Subscription, error)
 
 	// ListExpiring returns active subscriptions ending within the given days.
 	ListExpiring(ctx context.Context, days int) ([]*models.ExpiringSubscription, error)

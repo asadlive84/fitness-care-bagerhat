@@ -37,16 +37,25 @@ func NewAdminSubscriptionHandlerWithSvc(svc adminSubSvc, log *slog.Logger) *Admi
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 
 type assignPlanReq struct {
-	PlanTemplateID string   `json:"plan_template_id" validate:"required,uuid"`
-	StartDate      *string  `json:"start_date"`    // YYYY-MM-DD, optional
-	FinalPrice     *float64 `json:"final_price"`   // optional; defaults to plan price
-	Note           *string  `json:"note"`
+	PlanTemplateID      string   `json:"plan_template_id" validate:"required,uuid"`
+	StartDate           *string  `json:"start_date"`    // YYYY-MM-DD, optional
+	FinalPrice          *float64 `json:"final_price"`   // optional; defaults to plan price
+	Note                *string  `json:"note"`
+	BillingType         string   `json:"billing_type"           validate:"omitempty,oneof=prepaid postpaid"`
+	PrepaidDueDate      *string  `json:"prepaid_due_date"`       // YYYY-MM-DD
+	PostpaidGraceBefore *int     `json:"postpaid_grace_before"`
+	PostpaidGraceAfter  *int     `json:"postpaid_grace_after"`
 }
 
 type updateActiveReq struct {
-	EndDate    string   `json:"end_date"    validate:"required"`
-	FinalPrice float64  `json:"final_price" validate:"min=0"` // 0 allowed (e.g. free extension)
-	Note       *string  `json:"note"`
+	StartDate           string   `json:"start_date"  validate:"required"`
+	EndDate             string   `json:"end_date"    validate:"required"`
+	FinalPrice          float64  `json:"final_price" validate:"min=0"` // 0 allowed (e.g. free extension)
+	Note                *string  `json:"note"`
+	BillingType         string   `json:"billing_type"           validate:"omitempty,oneof=prepaid postpaid"`
+	PrepaidDueDate      *string  `json:"prepaid_due_date"`
+	PostpaidGraceBefore *int     `json:"postpaid_grace_before"`
+	PostpaidGraceAfter  *int     `json:"postpaid_grace_after"`
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -76,9 +85,12 @@ func (h *AdminSubscriptionHandler) AssignPlan(c *fiber.Ctx) error {
 	planID, _ := uuid.Parse(req.PlanTemplateID) // validate tag already ensured this is a uuid
 
 	svcReq := services.AssignPlanRequest{
-		PlanTemplateID: planID,
-		FinalPrice:     req.FinalPrice,
-		Note:           req.Note,
+		PlanTemplateID:      planID,
+		FinalPrice:          req.FinalPrice,
+		Note:                req.Note,
+		BillingType:         req.BillingType,
+		PostpaidGraceBefore: req.PostpaidGraceBefore,
+		PostpaidGraceAfter:  req.PostpaidGraceAfter,
 	}
 	if req.StartDate != nil {
 		t, err := parseDate(*req.StartDate)
@@ -87,6 +99,14 @@ func (h *AdminSubscriptionHandler) AssignPlan(c *fiber.Ctx) error {
 				"VALIDATION_ERROR", "start_date must be YYYY-MM-DD", nil)
 		}
 		svcReq.StartDate = t
+	}
+	if req.PrepaidDueDate != nil {
+		t, err := parseDate(*req.PrepaidDueDate)
+		if err != nil {
+			return utils.ErrorResponse(c, fiber.StatusBadRequest,
+				"VALIDATION_ERROR", "prepaid_due_date must be YYYY-MM-DD", nil)
+		}
+		svcReq.PrepaidDueDate = &t
 	}
 
 	sub, err := h.svc.AssignPlan(c.UserContext(), memberID, svcReq)
@@ -156,17 +176,37 @@ func (h *AdminSubscriptionHandler) UpdateActive(c *fiber.Ctx) error {
 		return nil
 	}
 
+	startDate, err := parseDate(req.StartDate)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest,
+			"VALIDATION_ERROR", "start_date must be YYYY-MM-DD", nil)
+	}
+
 	endDate, err := parseDate(req.EndDate)
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest,
 			"VALIDATION_ERROR", "end_date must be YYYY-MM-DD", nil)
 	}
 
-	sub, err := h.svc.UpdateActive(c.UserContext(), memberID, services.UpdateActiveRequest{
-		EndDate:    endDate,
-		FinalPrice: req.FinalPrice,
-		Note:       req.Note,
-	})
+	svcUpdateReq := services.UpdateActiveRequest{
+		StartDate:           startDate,
+		EndDate:             endDate,
+		FinalPrice:          req.FinalPrice,
+		Note:                req.Note,
+		BillingType:         req.BillingType,
+		PostpaidGraceBefore: req.PostpaidGraceBefore,
+		PostpaidGraceAfter:  req.PostpaidGraceAfter,
+	}
+	if req.PrepaidDueDate != nil {
+		t, err := parseDate(*req.PrepaidDueDate)
+		if err != nil {
+			return utils.ErrorResponse(c, fiber.StatusBadRequest,
+				"VALIDATION_ERROR", "prepaid_due_date must be YYYY-MM-DD", nil)
+		}
+		svcUpdateReq.PrepaidDueDate = &t
+	}
+
+	sub, err := h.svc.UpdateActive(c.UserContext(), memberID, svcUpdateReq)
 	if err != nil {
 		if errors.Is(err, services.ErrNotFound) {
 			return utils.ErrorResponse(c, fiber.StatusNotFound, "NOT_FOUND", "No active subscription found", nil)

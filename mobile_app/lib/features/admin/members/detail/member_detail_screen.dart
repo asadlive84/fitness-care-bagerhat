@@ -27,25 +27,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-/// Loads and caches the active subscription for a given member ID.
+/// Returns the active subscription embedded in the member detail response.
 ///
-/// The admin member-detail GET endpoint returns the member profile only — it
-/// does not embed subscription data. This provider fetches the subscription
-/// list separately and returns the first entry with status == 'active', or
-/// null when no active subscription exists.
+/// The admin member-detail GET endpoint now returns active_subscription with
+/// plan info and payment totals — no separate subscriptions API call needed.
 ///
-/// Invalidate by calling `ref.invalidate(memberActiveSubProvider(memberId))`
+/// Invalidate by calling `ref.invalidate(memberDetailControllerProvider(memberId))`
 /// after assigning or updating a subscription.
 final memberActiveSubProvider = FutureProvider.autoDispose
     .family<MemberSubscription?, String>((ref, memberId) async {
-  final response =
-      await ref.read(memberRepositoryProvider).getSubscriptions(memberId);
-  final subs = response.data ?? [];
-  try {
-    return subs.firstWhere((s) => s.status == 'active');
-  } catch (_) {
-    return null; // no active subscription
-  }
+  final memberAsync = ref.watch(memberDetailControllerProvider(memberId));
+  return memberAsync.valueOrNull?.activeSubscription;
 });
 
 /// Calculates the total paid amount for a specific subscription.
@@ -399,7 +391,6 @@ class _Header extends ConsumerWidget {
                         ref
                             .read(memberDetailControllerProvider(screenId).notifier)
                             .load();
-                        ref.invalidate(memberActiveSubProvider(member.id));
                       }
                     });
                   },
@@ -419,16 +410,12 @@ class _OverviewTab extends ConsumerWidget {
   final String screenId;
 
   void _refreshSub(WidgetRef ref) {
-    // Invalidate both the subscription provider and the member detail so the
-    // whole screen reflects the updated state.
-    ref.invalidate(memberActiveSubProvider(member.id));
+    // Reload member detail — active_subscription is now embedded in the response.
     ref.read(memberDetailControllerProvider(screenId).notifier).load();
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Fetch the active subscription from the subscriptions endpoint — the
-    // member profile endpoint doesn't embed subscription data.
     final subAsync = ref.watch(memberActiveSubProvider(member.id));
 
     return SingleChildScrollView(
@@ -700,7 +687,6 @@ class _SubscriptionsTab extends ConsumerWidget {
                         ),
                       ).then((ok) {
                         if (ok == true) {
-                          ref.invalidate(memberActiveSubProvider(memberId));
                           ref
                               .read(memberDetailControllerProvider(screenId)
                                   .notifier)
@@ -923,7 +909,7 @@ class _SubHistoryCard extends StatelessWidget {
   }
 }
 
-class _SubscriptionCard extends ConsumerWidget {
+class _SubscriptionCard extends StatelessWidget {
   const _SubscriptionCard({
     required this.memberId,
     required this.subscription,
@@ -935,16 +921,16 @@ class _SubscriptionCard extends ConsumerWidget {
   final VoidCallback? onEdit;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final paidAsync = ref.watch(subscriptionTotalPaidProvider(
-      (memberId, subscription.id),
-    ));
-
+  Widget build(BuildContext context) {
     final total = subscription.finalPrice;
-    final paid = paidAsync.valueOrNull ?? 0.0;
-    final due = total - paid;
+    final paid = subscription.moneyPaid;
+    final due = subscription.moneyLeft;
     final progress = total > 0 ? (paid / total).clamp(0.0, 1.0) : 0.0;
     final isFullyPaid = due <= 0;
+
+    final planLabel = subscription.planName.isNotEmpty
+        ? subscription.planName
+        : (subscription.note ?? 'Membership Plan');
 
     return Container(
       width: double.infinity,
@@ -960,10 +946,13 @@ class _SubscriptionCard extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Payment Status',
-                style: AppText.labelSmall
-                    .copyWith(color: Colors.white.withValues(alpha: 0.8)),
+              Expanded(
+                child: Text(
+                  planLabel,
+                  style: AppText.labelSmall
+                      .copyWith(color: Colors.white.withValues(alpha: 0.8)),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               Icon(PhosphorIcons.money(), color: Colors.white, size: 20),
             ],
@@ -997,7 +986,7 @@ class _SubscriptionCard extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Plan: ${subscription.startDate.toDisplay()} - ${subscription.endDate.toDisplay()}',
+                '${subscription.startDate.toDisplay()} – ${subscription.endDate.toDisplay()}',
                 style: AppText.bodySmall.copyWith(color: Colors.white70),
               ),
               if (onEdit != null)
