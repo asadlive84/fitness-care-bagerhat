@@ -67,14 +67,14 @@ func (s *PlanService) ListPlans(ctx context.Context) ([]*models.PlanTemplate, er
 	return plans, nil
 }
 
-// ListPlansWithSubscribers returns all plans with live active-subscriber details
-// and per-subscriber payment aggregation. Never cached.
-func (s *PlanService) ListPlansWithSubscribers(ctx context.Context) ([]*models.PlanWithSubscribers, error) {
-	plans, err := s.plans.ListWithSubscribers(ctx)
+// ListPlansWithSubscribers returns plans with pro-rated financials for the given
+// period (or lifetime when filter is zero). Never cached.
+func (s *PlanService) ListPlansWithSubscribers(ctx context.Context, filter models.PlanListFilter) (*models.PlansListResponse, error) {
+	resp, err := s.plans.ListWithSubscribers(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("list plans with subscribers: %w", err)
 	}
-	return plans, nil
+	return resp, nil
 }
 
 // GetPlan returns a single plan template.

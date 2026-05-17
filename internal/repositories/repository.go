@@ -71,9 +71,10 @@ type PlanRepository interface {
 	Update(ctx context.Context, p *models.PlanTemplate) error
 	Delete(ctx context.Context, id uuid.UUID) error
 
-	// ListWithSubscribers returns all plans with their active subscriber details
-	// and per-subscriber payment aggregation. Not cached — financial data must be live.
-	ListWithSubscribers(ctx context.Context) ([]*models.PlanWithSubscribers, error)
+	// ListWithSubscribers returns all plans with per-plan financials (pro-rated for
+	// the requested period), active subscriber details, and a cross-plan summary.
+	// Never cached — financial data must always be live.
+	ListWithSubscribers(ctx context.Context, filter models.PlanListFilter) (*models.PlansListResponse, error)
 }
 
 // SubscriptionRepository covers subscriptions persistence.

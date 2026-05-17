@@ -3,7 +3,9 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/asadlive84/fitness-care-bagerhat/internal/models"
 	"github.com/asadlive84/fitness-care-bagerhat/internal/services"
@@ -14,7 +16,7 @@ import (
 
 type adminPlanSvc interface {
 	CreatePlan(ctx context.Context, req services.CreatePlanRequest) (*models.PlanTemplate, error)
-	ListPlansWithSubscribers(ctx context.Context) ([]*models.PlanWithSubscribers, error)
+	ListPlansWithSubscribers(ctx context.Context, filter models.PlanListFilter) (*models.PlansListResponse, error)
 	UpdatePlan(ctx context.Context, id uuid.UUID, req services.UpdatePlanRequest) (*models.PlanTemplate, error)
 	DeletePlan(ctx context.Context, id uuid.UUID) error
 }
@@ -91,13 +93,68 @@ func (h *AdminPlanHandler) CreatePlan(c *fiber.Ctx) error {
 // @Success     200 {object} map[string]any
 // @Router      /api/v1/admin/plans [get]
 func (h *AdminPlanHandler) ListPlans(c *fiber.Ctx) error {
-	plans, err := h.svc.ListPlansWithSubscribers(c.UserContext())
+	filter, err := parsePlanListFilter(c)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "VALIDATION_ERROR", err.Error(), nil)
+	}
+
+	plans, err := h.svc.ListPlansWithSubscribers(c.UserContext(), filter)
 	if err != nil {
 		h.log.ErrorContext(c.UserContext(), "list plans", "error", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError,
 			"INTERNAL_ERROR", "Could not fetch plans", nil)
 	}
 	return utils.SuccessResponse(c, fiber.StatusOK, plans)
+}
+
+// parsePlanListFilter reads ?month=YYYY-MM or ?from=YYYY-MM-DD&to=YYYY-MM-DD.
+// Returns a zero-value filter (lifetime) when no params are provided.
+func parsePlanListFilter(c *fiber.Ctx) (models.PlanListFilter, error) {
+	// ?month=YYYY-MM  →  from=first day, to=last day of that month
+	if m := c.Query("month"); m != "" {
+		t, err := time.Parse("2006-01", m)
+		if err != nil {
+			return models.PlanListFilter{}, fmt.Errorf("month must be YYYY-MM (e.g. 2026-04)")
+		}
+		from := t
+		to := t.AddDate(0, 1, -1) // last day of the month
+		return models.PlanListFilter{From: &from, To: &to}, nil
+	}
+
+	fromStr := c.Query("from")
+	toStr := c.Query("to")
+
+	// Both absent → lifetime
+	if fromStr == "" && toStr == "" {
+		return models.PlanListFilter{}, nil
+	}
+
+	var from, to time.Time
+	var err error
+	if fromStr != "" {
+		from, err = time.Parse("2006-01-02", fromStr)
+		if err != nil {
+			return models.PlanListFilter{}, fmt.Errorf("from must be YYYY-MM-DD")
+		}
+	} else {
+		// Default from to the beginning of the Unix epoch when only to is given
+		from = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	}
+
+	if toStr != "" {
+		to, err = time.Parse("2006-01-02", toStr)
+		if err != nil {
+			return models.PlanListFilter{}, fmt.Errorf("to must be YYYY-MM-DD")
+		}
+	} else {
+		to = time.Now().UTC()
+	}
+
+	if to.Before(from) {
+		return models.PlanListFilter{}, fmt.Errorf("to must not be before from")
+	}
+
+	return models.PlanListFilter{From: &from, To: &to}, nil
 }
 
 // UpdatePlan godoc

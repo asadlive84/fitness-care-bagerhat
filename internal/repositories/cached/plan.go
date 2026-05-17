@@ -81,9 +81,9 @@ func (r *PlanRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// ListWithSubscribers bypasses the cache — subscriber financial data must be live.
-func (r *PlanRepo) ListWithSubscribers(ctx context.Context) ([]*models.PlanWithSubscribers, error) {
-	return r.db.ListWithSubscribers(ctx)
+// ListWithSubscribers bypasses the cache — financial data must always be live.
+func (r *PlanRepo) ListWithSubscribers(ctx context.Context, filter models.PlanListFilter) (*models.PlansListResponse, error) {
+	return r.db.ListWithSubscribers(ctx, filter)
 }
 
 func (r *PlanRepo) invalidatePlans(ctx context.Context) {

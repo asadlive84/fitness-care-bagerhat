@@ -22,7 +22,7 @@ import (
 type fakePlanSvc struct {
 	createResult      *models.PlanTemplate
 	createErr         error
-	listWithSubResult []*models.PlanWithSubscribers
+	listWithSubResult *models.PlansListResponse
 	listErr           error
 	updateResult      *models.PlanTemplate
 	updateErr         error
@@ -32,7 +32,7 @@ type fakePlanSvc struct {
 func (f *fakePlanSvc) CreatePlan(_ context.Context, _ services.CreatePlanRequest) (*models.PlanTemplate, error) {
 	return f.createResult, f.createErr
 }
-func (f *fakePlanSvc) ListPlansWithSubscribers(_ context.Context) ([]*models.PlanWithSubscribers, error) {
+func (f *fakePlanSvc) ListPlansWithSubscribers(_ context.Context, _ models.PlanListFilter) (*models.PlansListResponse, error) {
 	return f.listWithSubResult, f.listErr
 }
 func (f *fakePlanSvc) UpdatePlan(_ context.Context, _ uuid.UUID, _ services.UpdatePlanRequest) (*models.PlanTemplate, error) {
@@ -86,17 +86,21 @@ func TestCreatePlan_ValidationError(t *testing.T) {
 }
 
 func TestListPlans_Success(t *testing.T) {
-	plans := []*models.PlanWithSubscribers{
-		{PlanTemplate: *samplePlan(), Subscribers: []models.PlanSubscriber{}},
-		{PlanTemplate: *samplePlan(), Subscribers: []models.PlanSubscriber{}},
+	result := &models.PlansListResponse{
+		Summary: &models.OverallPlanSummary{SubscriptionsStarted: 2, TotalBilled: 3000, TotalCollected: 1500, TotalDue: 1500},
+		Plans: []*models.PlanWithSubscribers{
+			{PlanTemplate: *samplePlan(), Subscribers: []models.PlanSubscriber{}},
+			{PlanTemplate: *samplePlan(), Subscribers: []models.PlanSubscriber{}},
+		},
 	}
-	app := newPlanTestApp(&fakePlanSvc{listWithSubResult: plans})
+	app := newPlanTestApp(&fakePlanSvc{listWithSubResult: result})
 
 	resp := doRequest(t, app, http.MethodGet, "/plans", nil)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	body := decodeBody(t, resp)
-	data := body["data"].([]any)
-	assert.Len(t, data, 2)
+	data := body["data"].(map[string]any)
+	assert.Len(t, data["plans"].([]any), 2)
+	assert.NotNil(t, data["summary"])
 }
 
 func TestUpdatePlan_Success(t *testing.T) {

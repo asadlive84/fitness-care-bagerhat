@@ -30,8 +30,53 @@ type PlanSubscriber struct {
 	MoneyLeft             float64   `json:"money_left"`
 }
 
-// PlanWithSubscribers extends PlanTemplate with active subscriber financial details.
+// PlanFinancials holds collection metrics for a single plan over a given period.
+//
+// In lifetime mode: covers all subscription statuses, no pro-ration.
+// In period mode: total_billed is pro-rated (overlap/duration × final_price);
+// total_collected only counts payments whose paid_at falls inside the period.
+type PlanFinancials struct {
+	SubscriptionsStarted int     `json:"subscriptions_started"` // started in period (lifetime = all)
+	TotalBilled          float64 `json:"total_billed"`          // pro-rated for period
+	TotalCollected       float64 `json:"total_collected"`       // payments received in period
+	TotalDue             float64 `json:"total_due"`             // billed − collected
+}
+
+// PlanWithSubscribers extends PlanTemplate with financials and active subscriber details.
 type PlanWithSubscribers struct {
 	PlanTemplate
-	Subscribers []PlanSubscriber `json:"subscribers"`
+	Financials  PlanFinancials   `json:"financials"`
+	Subscribers []PlanSubscriber `json:"subscribers"` // currently active regardless of filter
 }
+
+// OverallPlanSummary is the cross-plan aggregate at the top of the list response.
+type OverallPlanSummary struct {
+	SubscriptionsStarted int     `json:"subscriptions_started"`
+	TotalBilled          float64 `json:"total_billed"`
+	TotalCollected       float64 `json:"total_collected"`
+	TotalDue             float64 `json:"total_due"`
+}
+
+// AppliedFilter describes the date window that was used for the query.
+type AppliedFilter struct {
+	Period string  `json:"period"`          // "lifetime" | "month" | "custom"
+	From   *string `json:"from,omitempty"`  // YYYY-MM-DD
+	To     *string `json:"to,omitempty"`    // YYYY-MM-DD
+}
+
+// PlansListResponse is the top-level payload for GET /api/v1/admin/plans.
+type PlansListResponse struct {
+	Filter  AppliedFilter        `json:"filter"`
+	Summary *OverallPlanSummary  `json:"summary"`
+	Plans   []*PlanWithSubscribers `json:"plans"`
+}
+
+// PlanListFilter carries the parsed date window from the HTTP query params.
+// Both nil → lifetime mode (no pro-ration, all-time aggregation).
+type PlanListFilter struct {
+	From *time.Time
+	To   *time.Time
+}
+
+// IsLifetime returns true when no date constraint is set.
+func (f PlanListFilter) IsLifetime() bool { return f.From == nil && f.To == nil }
