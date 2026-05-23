@@ -118,8 +118,17 @@ class _AssignPlanSheetState extends ConsumerState<AssignPlanSheet> {
               children: plansState.plans.map((plan) {
                 final isSelected = _selectedPlan?.id == plan.id;
                 return ChoiceChip(
-                  label: Text(plan.name),
+                  label: Text(
+                    plan.name,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : AppColors.textPrimary,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
                   selected: isSelected,
+                  selectedColor: AppColors.primary,
+                  backgroundColor: Colors.grey.shade200,
+                  showCheckmark: false,
                   onSelected: (selected) {
                     if (selected) {
                       setState(() {

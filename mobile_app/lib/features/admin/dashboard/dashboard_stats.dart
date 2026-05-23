@@ -7,7 +7,7 @@ part 'dashboard_stats.g.dart';
 class DashboardStats with _$DashboardStats {
   const factory DashboardStats({
     @JsonKey(name: 'total_members') required int totalMembers,
-    @JsonKey(name: 'active_members') required int activeMembers,
+    @JsonKey(name: 'active_plans') required int activePlans,
     @JsonKey(name: 'pending_payments') required int pendingPayments,
     @JsonKey(name: 'monthly_revenue') required double monthlyRevenue,
     @JsonKey(name: 'revenue_chart') required List<ChartPoint> revenueChart,

@@ -26,6 +26,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:printing/printing.dart';
+
+import 'widgets/member_form_pdf.dart';
 
 /// Returns the active subscription embedded in the member detail response.
 ///
@@ -69,10 +72,35 @@ class MemberDetailScreen extends ConsumerWidget {
         title: const Text('Member Profile'),
         actions: [
           state.when(
-            data: (member) => IconButton(
-              icon: Icon(PhosphorIcons.pencilSimple()),
-              onPressed: () =>
-                  context.push(Routes.adminMemberEdit(member.id), extra: member),
+            data: (member) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(PhosphorIcons.export()),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => Scaffold(
+                          appBar: AppBar(title: const Text('Form Preview')),
+                          body: PdfPreview(
+                            build: (format) => MemberFormPdf.generate(member),
+                            allowSharing: true,
+                            allowPrinting: true,
+                            canChangeOrientation: false,
+                            canChangePageFormat: false,
+                            pdfFileName: 'member_form_${member.name.replaceAll(' ', '_')}.pdf',
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: Icon(PhosphorIcons.pencilSimple()),
+                  onPressed: () => context.push(Routes.adminMemberEdit(member.id),
+                      extra: member),
+                ),
+              ],
             ),
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
@@ -343,7 +371,7 @@ class _Header extends ConsumerWidget {
       padding: AppSpacing.paddingAll24,
       child: Column(
         children: [
-          GymAvatar(name: member.name, imageUrl: member.imageUrl, size: 90),
+          GymAvatar(name: member.name, imageUrl: member.profilePictureUrl, size: 90),
           const SizedBox(height: AppSpacing.s16),
           Text(member.name, style: AppText.headlineLarge),
           Text(member.phone,
@@ -485,7 +513,8 @@ class _OverviewTab extends ConsumerWidget {
               );
             },
           ),
-
+          const SizedBox(height: AppSpacing.s24),
+          _AiNutritionCard(member: member, screenId: screenId),
           const SizedBox(height: AppSpacing.s32),
           Text('Member Info', style: AppText.titleMedium),
           const SizedBox(height: AppSpacing.s16),
@@ -959,7 +988,9 @@ class _SubscriptionCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.s4),
           Text(
-            isFullyPaid ? 'Fully Paid' : 'Partial Payment Done',
+            isFullyPaid 
+                ? 'Fully Paid' 
+                : (paid > 0 ? 'Partial Payment Done' : 'Payment Due'),
             style: AppText.titleLarge.copyWith(color: Colors.white),
           ),
           const SizedBox(height: AppSpacing.s20),
@@ -1136,6 +1167,633 @@ class _LoadingState extends StatelessWidget {
           GymShimmer.card(height: 48),
           SizedBox(height: AppSpacing.s12),
           GymShimmer.card(height: 48),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiNutritionCard extends ConsumerStatefulWidget {
+  const _AiNutritionCard({required this.member, required this.screenId});
+  final Member member;
+  final String screenId;
+
+  @override
+  ConsumerState<_AiNutritionCard> createState() => _AiNutritionCardState();
+}
+
+class _AiNutritionCardState extends ConsumerState<_AiNutritionCard> {
+  bool _isUpdatingAI = false;
+  bool _isGeneratingDiet = false;
+  bool _isApprovingDeclining = false;
+  String _dietLanguage = 'en';
+
+  @override
+  Widget build(BuildContext context) {
+    final member = widget.member;
+    final isAiAllowed = member.isAiAllowed;
+    final isAiFoodLogAllowed = member.isAiFoodLogAllowed;
+    final budgetLevel = member.budgetLevel ?? 'Medium';
+    final isAnyAiActive = isAiAllowed || isAiFoodLogAllowed;
+
+    return GymCard(
+      padding: const EdgeInsets.all(AppSpacing.s20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(PhosphorIcons.sparkle(), color: AppColors.primary, size: 24),
+              const SizedBox(width: AppSpacing.s8),
+              Expanded(
+                child: Text(
+                  'AI & Nutrition Management',
+                  style: AppText.titleMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.s8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isAnyAiActive
+                      ? AppColors.primary.withValues(alpha: 0.12)
+                      : Colors.grey.shade100,
+                  borderRadius: AppSpacing.rFull,
+                ),
+                child: Text(
+                  isAnyAiActive ? 'AI ACTIVE' : 'AI INACTIVE',
+                  style: AppText.labelSmall.copyWith(
+                    color: isAnyAiActive ? AppColors.primary : AppColors.textHint,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.s16),
+          const Divider(),
+          const SizedBox(height: AppSpacing.s12),
+          // AI Diet features Toggle Switch
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Enable AI Diet Features', style: AppText.bodyMedium.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      'Allows AI diet planning & personalized recommendations',
+                      style: AppText.bodySmall.copyWith(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.s12),
+              _isUpdatingAI
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                    )
+                  : Switch.adaptive(
+                      value: isAiAllowed,
+                      activeColor: AppColors.primary,
+                      onChanged: (value) async {
+                        setState(() => _isUpdatingAI = true);
+                        try {
+                          await ref.read(memberRepositoryProvider).updateAiSettings(
+                                member.id,
+                                isAiAllowed: value,
+                                isAiFoodLogAllowed: isAiFoodLogAllowed,
+                                budgetLevel: budgetLevel,
+                              );
+                          ref.read(memberDetailControllerProvider(widget.screenId).notifier).load();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('AI Diet features updated successfully!')),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to update AI Diet features: $e')),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setState(() => _isUpdatingAI = false);
+                        }
+                      },
+                    ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.s12),
+          // AI Food Log Toggle Switch
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Enable AI Photo Uploads', style: AppText.bodyMedium.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      'Allows photo-based food nutrition logging & tracking',
+                      style: AppText.bodySmall.copyWith(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.s12),
+              _isUpdatingAI
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                    )
+                  : Switch.adaptive(
+                      value: isAiFoodLogAllowed,
+                      activeColor: AppColors.primary,
+                      onChanged: (value) async {
+                        setState(() => _isUpdatingAI = true);
+                        try {
+                          await ref.read(memberRepositoryProvider).updateAiSettings(
+                                member.id,
+                                isAiAllowed: isAiAllowed,
+                                isAiFoodLogAllowed: value,
+                                budgetLevel: budgetLevel,
+                              );
+                          ref.read(memberDetailControllerProvider(widget.screenId).notifier).load();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('AI Photo Upload features updated successfully!')),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to update AI Photo Upload features: $e')),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setState(() => _isUpdatingAI = false);
+                        }
+                      },
+                    ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.s16),
+          // Diet Budget Level Selection
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Diet Budget Level', style: AppText.bodyMedium.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      'AI will suggest meals matching this tier',
+                      style: AppText.bodySmall.copyWith(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.s12),
+              SizedBox(
+                width: 120,
+                child: DropdownButtonFormField<String>(
+                  value: ['Low', 'Medium', 'High'].contains(budgetLevel) ? budgetLevel : 'Medium',
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Low', child: Text('Low')),
+                    DropdownMenuItem(value: 'Medium', child: Text('Medium')),
+                    DropdownMenuItem(value: 'High', child: Text('High')),
+                  ],
+                  onChanged: _isUpdatingAI
+                      ? null
+                      : (val) async {
+                          if (val == null) return;
+                          setState(() => _isUpdatingAI = true);
+                          try {
+                            await ref.read(memberRepositoryProvider).updateAiSettings(
+                                  member.id,
+                                  isAiAllowed: isAiAllowed,
+                                  isAiFoodLogAllowed: isAiFoodLogAllowed,
+                                  budgetLevel: val,
+                                );
+                            ref.read(memberDetailControllerProvider(widget.screenId).notifier).load();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Budget level set to $val')),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Failed to update budget: $e')),
+                              );
+                            }
+                          } finally {
+                            if (mounted) setState(() => _isUpdatingAI = false);
+                          }
+                        },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.s20),
+          // Language toggle
+          Row(
+            children: [
+              Text('Language:', style: AppText.bodySmall.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(width: AppSpacing.s8),
+              GestureDetector(
+                onTap: () => setState(() => _dietLanguage = 'en'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _dietLanguage == 'en' ? AppColors.primary : Colors.grey.shade200,
+                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
+                  ),
+                  child: Text(
+                    'English',
+                    style: AppText.bodySmall.copyWith(
+                      color: _dietLanguage == 'en' ? Colors.white : AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () => setState(() => _dietLanguage = 'bn'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _dietLanguage == 'bn' ? AppColors.primary : Colors.grey.shade200,
+                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
+                  ),
+                  child: Text(
+                    'বাংলা',
+                    style: AppText.bodySmall.copyWith(
+                      color: _dietLanguage == 'bn' ? Colors.white : AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.s12),
+          // Generate Plan Button
+          SizedBox(
+            width: double.infinity,
+            child: _isGeneratingDiet
+                ? Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: AppSpacing.r12,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                        ),
+                        const SizedBox(width: AppSpacing.s12),
+                        Text(
+                          'Generating Personalized AI Plan...',
+                          style: AppText.bodyMedium.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : GymButton.primary(
+                    label: member.dietChart != null ? 'Re-Generate AI Diet Plan' : 'Generate AI Diet Plan',
+                    icon: Icon(PhosphorIcons.magicWand(), color: Colors.white),
+                    onPressed: () async {
+                      setState(() => _isGeneratingDiet = true);
+                      try {
+                        await ref.read(memberRepositoryProvider).generateDietChart(member.id, language: _dietLanguage);
+                        ref.read(memberDetailControllerProvider(widget.screenId).notifier).load();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('AI Diet Plan generated successfully!')),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to generate diet plan: $e')),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _isGeneratingDiet = false);
+                      }
+                    },
+                  ),
+          ),
+          if (member.dietChart != null) ...[
+            const SizedBox(height: AppSpacing.s16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.08),
+                borderRadius: AppSpacing.r8,
+                border: Border.all(color: AppColors.success.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                children: [
+                  Icon(PhosphorIcons.checkCircle(PhosphorIconsStyle.fill), color: AppColors.success, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This member has an active AI Diet Chart.',
+                      style: AppText.bodySmall.copyWith(color: AppColors.success, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (member.pendingDietChart != null) ...[
+            const SizedBox(height: AppSpacing.s24),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.s16),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50.withValues(alpha: 0.8),
+                borderRadius: AppSpacing.r16,
+                border: Border.all(color: Colors.amber.shade300, width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.amber.shade200.withValues(alpha: 0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(PhosphorIcons.warningCircle(PhosphorIconsStyle.fill), color: Colors.amber.shade800, size: 24),
+                      const SizedBox(width: AppSpacing.s8),
+                      Expanded(
+                        child: Text(
+                          'Pending AI Diet Plan (Review Required)',
+                          style: AppText.titleSmall.copyWith(
+                            color: Colors.amber.shade900,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.s12),
+                  Text(
+                    'An AI-generated nutrition plan is awaiting your review. Please verify the meal details, times, and nutritional values before making it active for the member.',
+                    style: AppText.bodySmall.copyWith(color: Colors.amber.shade900, height: 1.4),
+                  ),
+                  const SizedBox(height: AppSpacing.s16),
+                  // Meal schedule list preview
+                  _PendingDietPreview(chart: member.pendingDietChart!),
+                  const SizedBox(height: AppSpacing.s16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _isApprovingDeclining
+                            ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.success))
+                            : ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.success,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: AppSpacing.r12),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  elevation: 0,
+                                ),
+                                icon: Icon(PhosphorIcons.check(PhosphorIconsStyle.bold), size: 18),
+                                label: const Text('Approve & Assign', style: TextStyle(fontWeight: FontWeight.bold)),
+                                onPressed: () async {
+                                  setState(() => _isApprovingDeclining = true);
+                                  try {
+                                    await ref.read(memberRepositoryProvider).approveDietChart(member.id);
+                                    ref.read(memberDetailControllerProvider(widget.screenId).notifier).load();
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('AI Diet Plan approved & assigned successfully!')),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Failed to approve diet plan: $e')),
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted) setState(() => _isApprovingDeclining = false);
+                                  }
+                                },
+                              ),
+                      ),
+                      const SizedBox(width: AppSpacing.s12),
+                      Expanded(
+                        child: _isApprovingDeclining
+                            ? const SizedBox.shrink()
+                            : OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.error,
+                                  side: const BorderSide(color: AppColors.error),
+                                  shape: RoundedRectangleBorder(borderRadius: AppSpacing.r12),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                icon: Icon(PhosphorIcons.x(PhosphorIconsStyle.bold), size: 18),
+                                label: const Text('Decline Plan', style: TextStyle(fontWeight: FontWeight.bold)),
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Decline AI Plan?'),
+                                      content: const Text('Are you sure you want to discard this pending AI Diet Plan? This action cannot be undone.'),
+                                      actions: [
+                                        TextButton(
+                                          child: const Text('Cancel'),
+                                          onPressed: () => Navigator.of(context).pop(false),
+                                        ),
+                                        TextButton(
+                                          style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                                          child: const Text('Discard'),
+                                          onPressed: () => Navigator.of(context).pop(true),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm != true) return;
+
+                                  setState(() => _isApprovingDeclining = true);
+                                  try {
+                                    await ref.read(memberRepositoryProvider).declineDietChart(member.id);
+                                    ref.read(memberDetailControllerProvider(widget.screenId).notifier).load();
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Pending AI Diet Plan discarded.')),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Failed to discard diet plan: $e')),
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted) setState(() => _isApprovingDeclining = false);
+                                  }
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingDietPreview extends StatelessWidget {
+  const _PendingDietPreview({required this.chart});
+  final Map<String, dynamic> chart;
+
+  @override
+  Widget build(BuildContext context) {
+    final dailyCalories = chart['daily_calories'] ?? 2000;
+    final macros = chart['macros'] as Map<String, dynamic>? ?? {};
+    final protein = macros['protein'] ?? 150;
+    final carbs = macros['carbs'] ?? 200;
+    final fats = macros['fats'] ?? 65;
+
+    final rawMeals = chart['meals'] as List<dynamic>? ?? [];
+    final List<Map<String, dynamic>> meals = rawMeals
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: AppSpacing.r12,
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      padding: const EdgeInsets.all(AppSpacing.s12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Calories: $dailyCalories kcal',
+            style: AppText.bodyMedium.copyWith(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Protein: ${protein}g  ·  Carbs: ${carbs}g  ·  Fats: ${fats}g',
+            style: AppText.bodySmall.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+          ),
+          const Divider(height: 16),
+          if (meals.isEmpty)
+            Text('No meals generated in this plan.', style: AppText.bodySmall.copyWith(color: AppColors.textSecondary))
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: meals.length,
+              separatorBuilder: (context, index) => const Divider(height: 12),
+              itemBuilder: (context, index) {
+                final meal = meals[index];
+                final String mealName = meal['name']?.toString() ?? 'Meal';
+                final String mealTime = meal['time']?.toString() ?? '08:30 AM';
+                final mealCal = meal['calories'] ?? 400;
+                final List<dynamic> items = (meal['items'] as List<dynamic>?) ?? [];
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      mealTime,
+                                      style: AppText.labelSmall.copyWith(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.s8),
+                                  Flexible(
+                                    child: Text(
+                                      mealName,
+                                      style: AppText.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$mealCal kcal',
+                          style: AppText.bodySmall.copyWith(fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                    if (items.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      ...items.map((item) => Padding(
+                        padding: const EdgeInsets.only(left: 4, top: 2),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('• ', style: AppText.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11)),
+                            Expanded(
+                              child: Text(
+                                item.toString(),
+                                style: AppText.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                    ],
+                  ],
+                );
+              },
+            ),
         ],
       ),
     );

@@ -32,6 +32,9 @@ type CreateMemberRequest struct {
 	Occupation       *string
 	NID              *string
 	EmergencyPhone   *string
+	CreatedByAdminID *uuid.UUID
+	IsAIAllowed        bool
+	IsAIFoodLogAllowed bool
 }
 
 // CreateMemberResult bundles the new member with its one-time temp password.
@@ -64,11 +67,12 @@ type UpdateMemberRequest struct {
 // MemberService handles member CRUD business logic.
 type MemberService struct {
 	members repositories.MemberRepository
+	weights repositories.WeightLogRepository
 }
 
 // NewMemberService constructs a MemberService.
-func NewMemberService(members repositories.MemberRepository) *MemberService {
-	return &MemberService{members: members}
+func NewMemberService(members repositories.MemberRepository, weights repositories.WeightLogRepository) *MemberService {
+	return &MemberService{members: members, weights: weights}
 }
 
 // CreateMember creates a new member with a cryptographically random temp password.
@@ -110,6 +114,9 @@ func (s *MemberService) CreateMember(ctx context.Context, req CreateMemberReques
 		MustChangePassword: true,
 		CreatedAt:          time.Now(),
 		UpdatedAt:          time.Now(),
+		CreatedByAdminID:   req.CreatedByAdminID,
+		IsAIAllowed:        req.IsAIAllowed,
+		IsAIFoodLogAllowed: req.IsAIFoodLogAllowed,
 	}
 
 	if err := s.members.Create(ctx, member, string(hash)); err != nil {
@@ -117,6 +124,12 @@ func (s *MemberService) CreateMember(ctx context.Context, req CreateMemberReques
 			return nil, fmt.Errorf("%w: phone number already registered", ErrConflict)
 		}
 		return nil, fmt.Errorf("create member: %w", err)
+	}
+
+	if req.CurrentWeight != nil {
+		if err := s.weights.Create(ctx, member.ID, *req.CurrentWeight, joinDate); err != nil {
+			// Best effort: don't fail member creation if logging weight fails
+		}
 	}
 
 	return &CreateMemberResult{Member: member, TempPassword: tempPass}, nil
@@ -165,6 +178,13 @@ func (s *MemberService) UpdateMember(ctx context.Context, id uuid.UUID, req Upda
 		return nil, fmt.Errorf("fetch member for update: %w", err)
 	}
 
+	weightChanged := false
+	if req.CurrentWeight != nil {
+		if existing.CurrentWeight == nil || *existing.CurrentWeight != *req.CurrentWeight {
+			weightChanged = true
+		}
+	}
+
 	existing.Name             = req.Name
 	existing.Phone            = req.Phone
 	existing.Gender           = req.Gender
@@ -187,6 +207,11 @@ func (s *MemberService) UpdateMember(ctx context.Context, id uuid.UUID, req Upda
 		}
 		return nil, fmt.Errorf("update member: %w", err)
 	}
+
+	if weightChanged && req.CurrentWeight != nil {
+		_ = s.weights.Create(ctx, existing.ID, *req.CurrentWeight, time.Now())
+	}
+
 	return existing, nil
 }
 
@@ -232,6 +257,11 @@ func (s *MemberService) ResetMemberPassword(ctx context.Context, id uuid.UUID) (
 	}
 
 	return &ResetPasswordResult{TempPassword: tempPass}, nil
+}
+
+// InvalidateCache clears the cached member profile.
+func (s *MemberService) InvalidateCache(ctx context.Context, id uuid.UUID, phone string) error {
+	return s.members.InvalidateCache(ctx, id, phone)
 }
 
 // DeleteMember permanently removes a member and all their associated data.

@@ -10,12 +10,34 @@ import (
 
 // Config holds all application configuration loaded from environment / .env file.
 type Config struct {
-	App      AppConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	JWT      JWTConfig
-	CORS     CORSConfig
-	FCM      FCMConfig
+	App        AppConfig
+	Database   DatabaseConfig
+	Redis      RedisConfig
+	JWT        JWTConfig
+	CORS       CORSConfig
+	FCM        FCMConfig
+	Upload     UploadConfig
+	AI         AIConfig
+	SuperAdmin SuperAdminConfig
+}
+
+// SuperAdminConfig holds seed credentials for the superadmin account.
+type SuperAdminConfig struct {
+	Email    string // SUPERADMIN_EMAIL
+	Password string // SUPERADMIN_PASSWORD
+	ApiKey   string // SUPERADMIN_API_KEY
+}
+
+type UploadConfig struct {
+	Dir        string
+	MaxSizeMB  int64
+}
+
+type AIConfig struct {
+	TextProvider   string // deepseek, openai, etc.
+	VisionProvider string // gemini, openai, etc.
+	TextAPIKey     string
+	VisionAPIKey   string
 }
 
 // FCMConfig holds Firebase Cloud Messaging credentials.
@@ -111,6 +133,21 @@ func Load() (*Config, error) {
 			ProjectID:       viper.GetString("FCM_PROJECT_ID"),
 			CredentialsJSON: viper.GetString("FIREBASE_CREDENTIALS_JSON"),
 		},
+		Upload: UploadConfig{
+			Dir:       viper.GetString("UPLOAD_DIR"),
+			MaxSizeMB: viper.GetInt64("UPLOAD_MAX_SIZE_MB"),
+		},
+		AI: AIConfig{
+			TextProvider:   viper.GetString("AI_TEXT_PROVIDER"),
+			VisionProvider: viper.GetString("AI_VISION_PROVIDER"),
+			TextAPIKey:     viper.GetString("AI_TEXT_API_KEY"),
+			VisionAPIKey:   viper.GetString("AI_VISION_API_KEY"),
+		},
+		SuperAdmin: SuperAdminConfig{
+			Email:    viper.GetString("SUPERADMIN_EMAIL"),
+			Password: viper.GetString("SUPERADMIN_PASSWORD"),
+			ApiKey:   viper.GetString("SUPERADMIN_API_KEY"),
+		},
 	}
 
 	if err := validate(cfg); err != nil {
@@ -140,6 +177,15 @@ func setDefaults() {
 
 	viper.SetDefault("JWT_ACCESS_TTL", "15m")
 	viper.SetDefault("JWT_REFRESH_TTL", "168h") // 7 days
+
+	viper.SetDefault("UPLOAD_DIR", "./uploads")
+	viper.SetDefault("UPLOAD_MAX_SIZE_MB", 5)
+
+	viper.SetDefault("CORS_ALLOWED_ORIGINS", "http://localhost:5050,http://localhost:5000,http://localhost:3000")
+
+	viper.SetDefault("AI_TEXT_PROVIDER", "deepseek")
+	viper.SetDefault("AI_VISION_PROVIDER", "gemini")
+	viper.SetDefault("SUPERADMIN_API_KEY", "superadmin_default_secret_key_123")
 }
 
 func validate(cfg *Config) error {

@@ -24,6 +24,10 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>We need camera access to let you take a profile picture or scan food.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need gallery access to let you choose a profile picture or food image.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

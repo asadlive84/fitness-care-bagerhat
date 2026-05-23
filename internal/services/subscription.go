@@ -40,6 +40,7 @@ type SubscriptionService struct {
 	subs    repositories.SubscriptionRepository
 	members repositories.MemberRepository
 	plans   repositories.PlanRepository
+	settings *SettingService
 }
 
 // NewSubscriptionService constructs a SubscriptionService.
@@ -47,8 +48,9 @@ func NewSubscriptionService(
 	subs repositories.SubscriptionRepository,
 	members repositories.MemberRepository,
 	plans repositories.PlanRepository,
+	settings *SettingService,
 ) *SubscriptionService {
-	return &SubscriptionService{subs: subs, members: members, plans: plans}
+	return &SubscriptionService{subs: subs, members: members, plans: plans, settings: settings}
 }
 
 // AssignPlan assigns a new subscription to a member.
@@ -98,13 +100,25 @@ func (s *SubscriptionService) AssignPlan(ctx context.Context, memberID uuid.UUID
 	}
 
 	// 6. Determine grace periods.
-	graceBefore := 5
+	var adminID *uuid.UUID
+	if member.CreatedByAdminID != nil {
+		adminID = member.CreatedByAdminID
+	}
+	gp := s.settings.GetGracePeriods(ctx, adminID)
+
+	graceBefore := gp.PostpaidDays
 	if req.PostpaidGraceBefore != nil {
 		graceBefore = *req.PostpaidGraceBefore
 	}
-	graceAfter := 5
+	graceAfter := gp.PostpaidDays
 	if req.PostpaidGraceAfter != nil {
 		graceAfter = *req.PostpaidGraceAfter
+	}
+
+	prepaidDueDate := req.PrepaidDueDate
+	if prepaidDueDate == nil && billingType == "prepaid" {
+		t := startDate.AddDate(0, 0, gp.PrepaidDays)
+		prepaidDueDate = &t
 	}
 
 	// 7. Replace any current active subscription.
@@ -123,7 +137,7 @@ func (s *SubscriptionService) AssignPlan(ctx context.Context, memberID uuid.UUID
 		Note:                req.Note,
 		Status:              "active",
 		BillingType:         billingType,
-		PrepaidDueDate:      req.PrepaidDueDate,
+		PrepaidDueDate:      prepaidDueDate,
 		PostpaidGraceBefore: graceBefore,
 		PostpaidGraceAfter:  graceAfter,
 		CreatedAt:           time.Now(),
@@ -175,20 +189,40 @@ func (s *SubscriptionService) ListSubscriptions(ctx context.Context, memberID uu
 
 // UpdateActive patches price, end_date, note, and billing fields on the current active sub.
 func (s *SubscriptionService) UpdateActive(ctx context.Context, memberID uuid.UUID, req UpdateActiveRequest) (*models.Subscription, error) {
+	member, err := s.members.GetByID(ctx, memberID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get member: %w", err)
+	}
+
 	billingType := req.BillingType
 	if billingType == "" {
 		billingType = "prepaid"
 	}
-	graceBefore := 5
+	var adminID *uuid.UUID
+	if member.CreatedByAdminID != nil {
+		adminID = member.CreatedByAdminID
+	}
+	gp := s.settings.GetGracePeriods(ctx, adminID)
+
+	graceBefore := gp.PostpaidDays
 	if req.PostpaidGraceBefore != nil {
 		graceBefore = *req.PostpaidGraceBefore
 	}
-	graceAfter := 5
+	graceAfter := gp.PostpaidDays
 	if req.PostpaidGraceAfter != nil {
 		graceAfter = *req.PostpaidGraceAfter
 	}
 
-	sub, err := s.subs.UpdateActive(ctx, memberID, req.StartDate, req.EndDate, req.FinalPrice, req.Note, billingType, req.PrepaidDueDate, graceBefore, graceAfter)
+	prepaidDueDate := req.PrepaidDueDate
+	if prepaidDueDate == nil && billingType == "prepaid" {
+		t := req.StartDate.AddDate(0, 0, gp.PrepaidDays)
+		prepaidDueDate = &t
+	}
+
+	sub, err := s.subs.UpdateActive(ctx, memberID, req.StartDate, req.EndDate, req.FinalPrice, req.Note, billingType, prepaidDueDate, graceBefore, graceAfter)
 	if err != nil {
 		if errors.Is(err, repositories.ErrNotFound) {
 			return nil, fmt.Errorf("%w: no active subscription for this member", ErrNotFound)

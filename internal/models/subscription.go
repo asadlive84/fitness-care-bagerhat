@@ -59,12 +59,20 @@ func (e *EnrichedSubscription) ComputeBillingStatus(now time.Time) {
 	}
 
 	if e.BillingType == "prepaid" {
+		var due time.Time
 		if e.PrepaidDueDate == nil {
-			e.BillingStatus = "prepaid_pending"
-			return
+			due = e.StartDate.AddDate(0, 0, 5) // Fallback for legacy data
+		} else {
+			due = *e.PrepaidDueDate
 		}
-		due := *e.PrepaidDueDate
-		days := int(due.Sub(now).Hours() / 24)
+		
+		// If due date is 14:00 today, and now is 15:00 today, Sub().Hours()/24 might be 0 but it's overdue
+		// To be strictly correct by calendar days, we can truncate to 24h, but Sub().Hours()/24 is fine for approximation.
+		// However, it's safer to use calendar day difference:
+		nowDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		dueDate := time.Date(due.Year(), due.Month(), due.Day(), 0, 0, 0, 0, due.Location())
+		days := int(dueDate.Sub(nowDate).Hours() / 24)
+		
 		e.DaysUntilDue = &days
 		if days >= 0 {
 			e.BillingStatus = "prepaid_due"
@@ -98,5 +106,6 @@ func (e *EnrichedSubscription) ComputeBillingStatus(now time.Time) {
 // ExpiringSubscription enriches a subscription with member info for the scheduler.
 type ExpiringSubscription struct {
 	Subscription
-	MemberName string `json:"member_name"`
+	MemberName       string     `json:"member_name"`
+	CreatedByAdminID *uuid.UUID `json:"created_by_admin_id,omitempty"`
 }

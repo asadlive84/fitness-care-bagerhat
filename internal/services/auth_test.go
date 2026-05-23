@@ -49,6 +49,7 @@ func (f *fakeMemberRepo) ResetPasswordByAdmin(_ context.Context, _ uuid.UUID, _ 
 	return nil
 }
 func (f *fakeMemberRepo) Delete(_ context.Context, _ uuid.UUID) error { return nil }
+func (f *fakeMemberRepo) InvalidateCache(_ context.Context, _ uuid.UUID, _ string) error { return nil }
 
 var _ repositories.MemberRepository = (*fakeMemberRepo)(nil)
 
@@ -63,6 +64,7 @@ func (f *fakeAdminRepo) GetAdminCredentials(_ context.Context, _ string) (*model
 	return f.creds, nil
 }
 func (f *fakeAdminRepo) Create(_ context.Context, _ *models.Admin, _ string) error { return nil }
+func (f *fakeAdminRepo) CreateSuperAdmin(_ context.Context, _ *models.Admin, _ string) error { return nil }
 func (f *fakeAdminRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.Admin, error) {
 	return nil, nil
 }

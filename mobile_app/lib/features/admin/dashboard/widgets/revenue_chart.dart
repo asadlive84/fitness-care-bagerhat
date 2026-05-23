@@ -6,18 +6,46 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 class RevenueChart extends StatelessWidget {
-  const RevenueChart({required this.data, super.key});
+  const RevenueChart({
+    required this.data,
+    required this.monthlyRevenue,
+    super.key,
+  });
   final List<ChartPoint> data;
+  final double monthlyRevenue;
 
   @override
   Widget build(BuildContext context) {
+    final revenueText = monthlyRevenue % 1 == 0
+        ? monthlyRevenue.toStringAsFixed(0)
+        : monthlyRevenue.toStringAsFixed(2);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Revenue Overview', style: AppText.titleMedium),
-        const SizedBox(height: AppSpacing.s16),
+        const SizedBox(height: AppSpacing.s8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              '৳$revenueText',
+              style: AppText.monoLarge.copyWith(
+                color: AppColors.primary,
+                fontSize: 32,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.s8),
+            Text(
+              'collected this month',
+              style: AppText.bodySmall.copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.s20),
         SizedBox(
-          height: 200,
+          height: 180,
           child: data.isEmpty
               ? Center(
                   child: Text(

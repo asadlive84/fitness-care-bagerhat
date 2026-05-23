@@ -39,11 +39,27 @@ WHERE member_id = @member_id
 RETURNING *;
 
 -- name: ListExpiringSubscriptions :many
--- Used by the renewal reminder scheduler. Returns active subs ending within @days days.
-SELECT s.*, m.name AS member_name
+-- Used by the renewal reminder scheduler. Returns active subs ending within their gym's nudge days.
+WITH member_nudge_days AS (
+    SELECT m.id AS member_id,
+           COALESCE(
+               (
+                   SELECT (s.value->>0)::int
+                   FROM settings s
+                   WHERE s.key = 'nudge_days'
+                     AND (s.admin_id = m.created_by_admin_id OR s.admin_id IS NULL)
+                   ORDER BY s.admin_id DESC NULLS LAST
+                   LIMIT 1
+               ),
+               7
+           ) AS days
+    FROM members m
+)
+SELECT s.*, m.name AS member_name, m.created_by_admin_id
 FROM subscriptions s
 JOIN members m ON m.id = s.member_id
+JOIN member_nudge_days mnd ON mnd.member_id = m.id
 WHERE s.status   = 'active'
   AND s.end_date >= CURRENT_DATE
-  AND s.end_date <= CURRENT_DATE + (sqlc.arg('days')::int * INTERVAL '1 day')
+  AND s.end_date <= CURRENT_DATE + (mnd.days * INTERVAL '1 day')
 ORDER BY s.end_date ASC;

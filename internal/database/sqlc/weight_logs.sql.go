@@ -64,20 +64,36 @@ func (q *Queries) GetLatestWeightLogByMemberID(ctx context.Context, memberID uui
 }
 
 const listMembersNeedingWeightReminder = `-- name: ListMembersNeedingWeightReminder :many
-SELECT m.id, m.name, m.phone, m.password_hash, m.goal, m.join_date, m.current_weight, m.status, m.must_change_password, m.created_at, m.updated_at, m.height_cm, m.date_of_birth, m.religion, m.blood_group, m.hobbies, m.present_address, m.permanent_address, m.occupation, m.nid, m.emergency_phone
+WITH member_reminder_days AS (
+    SELECT m.id AS member_id,
+           COALESCE(
+               (
+                   SELECT (s.value->>0)::int
+                   FROM settings s
+                   WHERE s.key = 'weight_reminder_days'
+                     AND (s.admin_id = m.created_by_admin_id OR s.admin_id IS NULL)
+                   ORDER BY s.admin_id DESC NULLS LAST
+                   LIMIT 1
+               ),
+               7
+           ) AS days
+    FROM members m
+)
+SELECT m.id, m.name, m.phone, m.password_hash, m.goal, m.join_date, m.current_weight, m.status, m.must_change_password, m.created_at, m.updated_at, m.height_cm, m.date_of_birth, m.religion, m.blood_group, m.hobbies, m.present_address, m.permanent_address, m.occupation, m.nid, m.emergency_phone, m.gender, m.budget_level, m.is_ai_allowed, m.profile_picture_url, m.diet_chart_json, m.is_ai_food_log_allowed, m.pending_diet_chart_json, m.created_by_admin_id
 FROM members m
+JOIN member_reminder_days mrd ON mrd.member_id = m.id
 WHERE m.status = 'active'
   AND NOT EXISTS (
       SELECT 1
       FROM weight_logs wl
       WHERE wl.member_id = m.id
-        AND wl.logged_at >= NOW() - ($1::int * INTERVAL '1 day')
+        AND wl.logged_at >= NOW() - (mrd.days * INTERVAL '1 day')
   )
 `
 
-// Active members who have not logged weight in the last @days days.
-func (q *Queries) ListMembersNeedingWeightReminder(ctx context.Context, days int32) ([]Member, error) {
-	rows, err := q.db.QueryContext(ctx, listMembersNeedingWeightReminder, days)
+// Active members who have not logged weight in their gym's weight reminder days.
+func (q *Queries) ListMembersNeedingWeightReminder(ctx context.Context) ([]Member, error) {
+	rows, err := q.db.QueryContext(ctx, listMembersNeedingWeightReminder)
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +123,14 @@ func (q *Queries) ListMembersNeedingWeightReminder(ctx context.Context, days int
 			&i.Occupation,
 			&i.Nid,
 			&i.EmergencyPhone,
+			&i.Gender,
+			&i.BudgetLevel,
+			&i.IsAiAllowed,
+			&i.ProfilePictureUrl,
+			&i.DietChartJson,
+			&i.IsAiFoodLogAllowed,
+			&i.PendingDietChartJson,
+			&i.CreatedByAdminID,
 		); err != nil {
 			return nil, err
 		}

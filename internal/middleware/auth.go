@@ -51,6 +51,32 @@ func RequireRole(roles ...string) fiber.Handler {
 	}
 }
 
+// RequireAdminOrSuperAdmin allows both admin and superadmin roles.
+// Use this on existing admin routes so superadmin can call them too.
+func RequireAdminOrSuperAdmin() fiber.Handler {
+	return RequireRole(appauth.RoleAdmin, appauth.RoleSuperAdmin)
+}
+
+// RequireSuperAdmin allows only superadmin.
+func RequireSuperAdmin() fiber.Handler {
+	return RequireRole(appauth.RoleSuperAdmin)
+}
+
+// RequireAPIKey validates that the request carries a valid X-API-KEY or X-SUPERADMIN-KEY header.
+func RequireAPIKey(apiKey string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		key := c.Get("X-API-KEY")
+		if key == "" {
+			key = c.Get("X-SUPERADMIN-KEY")
+		}
+		if key == "" || key != apiKey {
+			return utils.ErrorResponse(c, fiber.StatusUnauthorized,
+				"UNAUTHORIZED", "Invalid or missing X-API-KEY or X-SUPERADMIN-KEY header", nil)
+		}
+		return c.Next()
+	}
+}
+
 func extractBearer(c *fiber.Ctx) string {
 	header := c.Get(fiber.HeaderAuthorization)
 	if !strings.HasPrefix(header, "Bearer ") {

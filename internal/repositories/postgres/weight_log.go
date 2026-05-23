@@ -53,8 +53,8 @@ func (r *WeightLogRepo) GetLatestByMemberID(ctx context.Context, memberID uuid.U
 	return &models.WeightLog{ID: row.ID, MemberID: row.MemberID, WeightKg: row.WeightKg, LoggedAt: row.LoggedAt}, nil
 }
 
-func (r *WeightLogRepo) ListMembersNeedingReminder(ctx context.Context, days int) ([]*models.Member, error) {
-	rows, err := r.q.ListMembersNeedingWeightReminder(ctx, int32(days))
+func (r *WeightLogRepo) ListMembersNeedingReminder(ctx context.Context, _ int) ([]*models.Member, error) {
+	rows, err := r.q.ListMembersNeedingWeightReminder(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list members needing reminder: %w", err)
 	}

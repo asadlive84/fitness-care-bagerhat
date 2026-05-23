@@ -14,7 +14,7 @@ import (
 const createPlanTemplate = `-- name: CreatePlanTemplate :one
 INSERT INTO plan_templates (id, name, duration_days, default_price)
 VALUES ($1, $2, $3, $4)
-RETURNING id, name, duration_days, default_price, created_at, updated_at
+RETURNING id, name, duration_days, default_price, created_at, updated_at, billing_type
 `
 
 type CreatePlanTemplateParams struct {
@@ -39,6 +39,7 @@ func (q *Queries) CreatePlanTemplate(ctx context.Context, arg CreatePlanTemplate
 		&i.DefaultPrice,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BillingType,
 	)
 	return i, err
 }
@@ -53,7 +54,7 @@ func (q *Queries) DeletePlanTemplate(ctx context.Context, id uuid.UUID) error {
 }
 
 const getPlanTemplateByID = `-- name: GetPlanTemplateByID :one
-SELECT id, name, duration_days, default_price, created_at, updated_at FROM plan_templates WHERE id = $1 LIMIT 1
+SELECT id, name, duration_days, default_price, created_at, updated_at, billing_type FROM plan_templates WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetPlanTemplateByID(ctx context.Context, id uuid.UUID) (PlanTemplate, error) {
@@ -66,12 +67,13 @@ func (q *Queries) GetPlanTemplateByID(ctx context.Context, id uuid.UUID) (PlanTe
 		&i.DefaultPrice,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BillingType,
 	)
 	return i, err
 }
 
 const listPlanTemplates = `-- name: ListPlanTemplates :many
-SELECT id, name, duration_days, default_price, created_at, updated_at FROM plan_templates ORDER BY created_at DESC
+SELECT id, name, duration_days, default_price, created_at, updated_at, billing_type FROM plan_templates ORDER BY created_at DESC
 `
 
 func (q *Queries) ListPlanTemplates(ctx context.Context) ([]PlanTemplate, error) {
@@ -90,6 +92,7 @@ func (q *Queries) ListPlanTemplates(ctx context.Context) ([]PlanTemplate, error)
 			&i.DefaultPrice,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.BillingType,
 		); err != nil {
 			return nil, err
 		}
@@ -111,7 +114,7 @@ SET name          = $1,
     default_price = $3,
     updated_at    = NOW()
 WHERE id = $4
-RETURNING id, name, duration_days, default_price, created_at, updated_at
+RETURNING id, name, duration_days, default_price, created_at, updated_at, billing_type
 `
 
 type UpdatePlanTemplateParams struct {
@@ -136,6 +139,7 @@ func (q *Queries) UpdatePlanTemplate(ctx context.Context, arg UpdatePlanTemplate
 		&i.DefaultPrice,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BillingType,
 	)
 	return i, err
 }

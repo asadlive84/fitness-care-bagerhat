@@ -9,11 +9,12 @@ import (
 	"github.com/asadlive84/fitness-care-bagerhat/internal/services"
 	"github.com/asadlive84/fitness-care-bagerhat/internal/utils"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type adminSettingSvc interface {
-	GetAll(ctx context.Context) ([]*models.Setting, error)
-	UpsertSetting(ctx context.Context, key string, value json.RawMessage) (*models.Setting, error)
+	GetAll(ctx context.Context, adminID *uuid.UUID) ([]*models.Setting, error)
+	UpsertSetting(ctx context.Context, key string, value json.RawMessage, adminID *uuid.UUID) (*models.Setting, error)
 }
 
 // AdminSettingsHandler holds HTTP handlers for settings management.
@@ -49,7 +50,16 @@ type upsertSettingReq struct {
 // @Success     200 {object} map[string]any
 // @Router      /api/v1/admin/settings [get]
 func (h *AdminSettingsHandler) GetSettings(c *fiber.Ctx) error {
-	settings, err := h.svc.GetAll(c.UserContext())
+	role, _ := c.Locals("role").(string)
+	var adminID *uuid.UUID
+	if role != "superadmin" {
+		adminIDStr, _ := c.Locals("user_id").(string)
+		if parsed, err := uuid.Parse(adminIDStr); err == nil {
+			adminID = &parsed
+		}
+	}
+
+	settings, err := h.svc.GetAll(c.UserContext(), adminID)
 	if err != nil {
 		h.log.ErrorContext(c.UserContext(), "get settings", "error", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Could not fetch settings", nil)
@@ -78,7 +88,16 @@ func (h *AdminSettingsHandler) UpdateSetting(c *fiber.Ctx) error {
 			"VALIDATION_ERROR", "value must be valid JSON", nil)
 	}
 
-	setting, err := h.svc.UpsertSetting(c.UserContext(), req.Key, req.Value)
+	role, _ := c.Locals("role").(string)
+	var adminID *uuid.UUID
+	if role != "superadmin" {
+		adminIDStr, _ := c.Locals("user_id").(string)
+		if parsed, err := uuid.Parse(adminIDStr); err == nil {
+			adminID = &parsed
+		}
+	}
+
+	setting, err := h.svc.UpsertSetting(c.UserContext(), req.Key, req.Value, adminID)
 	if err != nil {
 		h.log.ErrorContext(c.UserContext(), "upsert setting", "error", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Could not save setting", nil)

@@ -1,13 +1,16 @@
+import 'package:fitness_care_bagerhat/app/router/routes.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_colors.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_spacing.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
 import 'package:fitness_care_bagerhat/core/extensions/datetime_ext.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_error_state.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_shimmer.dart';
+import 'package:fitness_care_bagerhat/features/admin/members/detail/member_detail_controller.dart';
 import 'package:fitness_care_bagerhat/features/admin/messages/message.dart';
 import 'package:fitness_care_bagerhat/features/admin/messages/message_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 /// Provider for the conversation messages for a specific member.
@@ -77,14 +80,14 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     if (text.isEmpty) return;
     _controller.clear();
     ref.read(adminChatProvider(widget.memberId).notifier).send(text);
-    _scrollToBottom();
+    _scrollToLatest();
   }
 
-  void _scrollToBottom() {
+  void _scrollToLatest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          0,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -95,20 +98,26 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(adminChatProvider(widget.memberId));
+    final memberState = ref.watch(memberDetailControllerProvider(widget.memberId));
+    final memberName = memberState.value?.name ?? widget.memberName ?? '';
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.memberName ?? 'Member'),
-            Text(
-              'ID: ${widget.memberId.substring(0, 8)}...',
-              style: AppText.labelSmall.copyWith(color: AppColors.textSecondary),
-            ),
-          ],
+        title: GestureDetector(
+          onTap: () => context.push(Routes.adminMemberDetail(widget.memberId)),
+          child: memberState.isLoading && memberName.isEmpty
+              ? const SizedBox(
+                  width: 120,
+                  child: LinearProgressIndicator(),
+                )
+              : Text(memberName),
         ),
         actions: [
+          IconButton(
+            icon: Icon(PhosphorIcons.userCircle()),
+            tooltip: 'View profile',
+            onPressed: () => context.push(Routes.adminMemberDetail(widget.memberId)),
+          ),
           IconButton(
             icon: Icon(PhosphorIcons.arrowClockwise()),
             onPressed: () =>
@@ -177,9 +186,10 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                   child: ListView.builder(
                     controller: _scrollController,
                     padding: AppSpacing.paddingAll16,
+                    reverse: true,
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
-                      final msg = messages[index];
+                      final msg = messages[messages.length - 1 - index];
                       final isAdmin = msg.senderRole == 'admin';
                       return _ChatBubble(message: msg, isAdmin: isAdmin);
                     },

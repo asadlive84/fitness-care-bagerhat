@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,16 +32,26 @@ type Member struct {
 	MustChangePassword bool       `json:"must_change_password"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
+	BudgetLevel        *string    `json:"budget_level,omitempty"`
+	IsAIAllowed        bool       `json:"is_ai_allowed"`
+	IsAIFoodLogAllowed bool       `json:"is_ai_food_log_allowed"`
+	ProfilePictureURL  *string          `json:"profile_picture_url,omitempty"`
+	DietChartJSON      *json.RawMessage `json:"diet_chart_json,omitempty"`
+	PendingDietChartJSON *json.RawMessage `json:"pending_diet_chart_json,omitempty"`
+	CreatedByAdminID     *uuid.UUID       `json:"created_by_admin_id,omitempty"`
 }
 
 // Admin is the domain model for the gym owner account.
 type Admin struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Phone     *string   `json:"phone,omitempty"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID                     uuid.UUID  `json:"id"`
+	Name                   string     `json:"name"`
+	Phone                  *string    `json:"phone,omitempty"`
+	Email                  string     `json:"email"`
+	CreatedAt              time.Time  `json:"created_at"`
+	UpdatedAt              time.Time  `json:"updated_at"`
+	Role                   string     `json:"role"`
+	ParentAdminID          *uuid.UUID `json:"parent_admin_id,omitempty"`
+	CreatedBySuperadminID  *uuid.UUID `json:"created_by_superadmin_id,omitempty"`
 }
 
 // MemberCredentials holds the data needed to verify a login attempt.
@@ -56,6 +67,7 @@ type MemberCredentials struct {
 type AdminCredentials struct {
 	AdminID      uuid.UUID
 	PasswordHash string
+	Role         string // "admin" | "superadmin"
 }
 
 // MemberFilter holds optional params for the paginated member list.

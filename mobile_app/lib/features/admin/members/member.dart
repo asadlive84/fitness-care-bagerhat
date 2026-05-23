@@ -54,8 +54,13 @@ class Member {
     this.goal,
     this.mustChangePassword = false,
     this.activeSubscription,
-    this.imageUrl,
+    this.profilePictureUrl,
+    this.budgetLevel,
+    this.isAiAllowed = false,
+    this.isAiFoodLogAllowed = false,
     required this.gender,
+    this.dietChart,
+    this.pendingDietChart,
   });
 
   final String id;
@@ -77,8 +82,13 @@ class Member {
   final String? goal;
   final bool mustChangePassword;
   final MemberSubscription? activeSubscription;
-  final String? imageUrl;
+  final String? profilePictureUrl;
+  final String? budgetLevel;
+  final bool isAiAllowed;
+  final bool isAiFoodLogAllowed;
   final String gender;
+  final Map<String, dynamic>? dietChart;
+  final Map<String, dynamic>? pendingDietChart;
 
   // ── Computed ────────────────────────────────────────────────────────────────
 
@@ -180,12 +190,17 @@ class Member {
             : MemberSubscription.fromJson(
                 json['active_subscription'] as Map<String, dynamic>,
               ),
-        imageUrl: json['imageUrl'] as String?,
+        profilePictureUrl: json['profile_picture_url'] as String?,
+        budgetLevel: json['budget_level'] as String?,
+        isAiAllowed: json['is_ai_allowed'] as bool? ?? false,
+        isAiFoodLogAllowed: json['is_ai_food_log_allowed'] as bool? ?? false,
         gender: (json['gender'] != null && 
                 (json['gender'] as String).isNotEmpty && 
                 kGenders.contains(json['gender']))
             ? json['gender'] as String
             : 'Other',
+        dietChart: json['diet_chart_json'] as Map<String, dynamic>?,
+        pendingDietChart: json['pending_diet_chart_json'] as Map<String, dynamic>?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -208,8 +223,13 @@ class Member {
         'goal': goal,
         'must_change_password': mustChangePassword,
         'active_subscription': activeSubscription?.toJson(),
-        'imageUrl': imageUrl,
+        'profile_picture_url': profilePictureUrl,
+        'budget_level': budgetLevel,
+        'is_ai_allowed': isAiAllowed,
+        'is_ai_food_log_allowed': isAiFoodLogAllowed,
         'gender': gender,
+        'diet_chart_json': dietChart,
+        'pending_diet_chart_json': pendingDietChart,
       };
 
   // ── copyWith (sentinel pattern for nullable fields) ─────────────────────────
@@ -234,8 +254,13 @@ class Member {
     Object? goal = _absent,
     bool? mustChangePassword,
     Object? activeSubscription = _absent,
-    Object? imageUrl = _absent,
+    Object? profilePictureUrl = _absent,
+    Object? budgetLevel = _absent,
+    bool? isAiAllowed,
+    bool? isAiFoodLogAllowed,
     String? gender,
+    Object? dietChart = _absent,
+    Object? pendingDietChart = _absent,
   }) =>
       Member(
         id: id ?? this.id,
@@ -275,9 +300,13 @@ class Member {
         activeSubscription: activeSubscription == _absent
             ? this.activeSubscription
             : activeSubscription as MemberSubscription?,
-        imageUrl:
-            imageUrl == _absent ? this.imageUrl : imageUrl as String?,
+        profilePictureUrl: profilePictureUrl == _absent ? this.profilePictureUrl : profilePictureUrl as String?,
+        budgetLevel: budgetLevel == _absent ? this.budgetLevel : budgetLevel as String?,
+        isAiAllowed: isAiAllowed ?? this.isAiAllowed,
+        isAiFoodLogAllowed: isAiFoodLogAllowed ?? this.isAiFoodLogAllowed,
         gender: gender ?? this.gender,
+        dietChart: dietChart == _absent ? this.dietChart : dietChart as Map<String, dynamic>?,
+        pendingDietChart: pendingDietChart == _absent ? this.pendingDietChart : pendingDietChart as Map<String, dynamic>?,
       );
 }
 

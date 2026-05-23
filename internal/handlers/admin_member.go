@@ -2,15 +2,20 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
+	"github.com/asadlive84/fitness-care-bagerhat/internal/database/sqlc"
 	"github.com/asadlive84/fitness-care-bagerhat/internal/models"
+	"github.com/asadlive84/fitness-care-bagerhat/internal/repositories/postgres"
 	"github.com/asadlive84/fitness-care-bagerhat/internal/services"
 	"github.com/asadlive84/fitness-care-bagerhat/internal/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
 
 // adminMemberSvc is the thin service interface the handler depends on.
@@ -24,6 +29,7 @@ type adminMemberSvc interface {
 	UpdateMemberStatus(ctx context.Context, id uuid.UUID, status string) error
 	ResetMemberPassword(ctx context.Context, id uuid.UUID) (*services.ResetPasswordResult, error)
 	DeleteMember(ctx context.Context, id uuid.UUID) error
+	InvalidateCache(ctx context.Context, id uuid.UUID, phone string) error
 }
 
 type adminEnrichedSubSvc interface {
@@ -39,20 +45,22 @@ type memberDetailResp struct {
 
 // AdminMemberHandler holds HTTP handlers for admin member management.
 type AdminMemberHandler struct {
-	svc  adminMemberSvc
-	subs adminEnrichedSubSvc
-	log  *slog.Logger
+	svc    adminMemberSvc
+	subs   adminEnrichedSubSvc
+	aiRepo *postgres.AIRepo
+	aiSvc  *services.AIService
+	log    *slog.Logger
 }
 
 // NewAdminMemberHandler creates an AdminMemberHandler backed by the concrete services.
-func NewAdminMemberHandler(svc *services.MemberService, subs *services.SubscriptionService, log *slog.Logger) *AdminMemberHandler {
-	return &AdminMemberHandler{svc: svc, subs: subs, log: log}
+func NewAdminMemberHandler(svc *services.MemberService, subs *services.SubscriptionService, aiRepo *postgres.AIRepo, aiSvc *services.AIService, log *slog.Logger) *AdminMemberHandler {
+	return &AdminMemberHandler{svc: svc, subs: subs, aiRepo: aiRepo, aiSvc: aiSvc, log: log}
 }
 
 // NewAdminMemberHandlerWithSvc creates an AdminMemberHandler with any adminMemberSvc
 // implementation — used in tests to inject fakes.
-func NewAdminMemberHandlerWithSvc(svc adminMemberSvc, subs adminEnrichedSubSvc, log *slog.Logger) *AdminMemberHandler {
-	return &AdminMemberHandler{svc: svc, subs: subs, log: log}
+func NewAdminMemberHandlerWithSvc(svc adminMemberSvc, subs adminEnrichedSubSvc, aiRepo *postgres.AIRepo, aiSvc *services.AIService, log *slog.Logger) *AdminMemberHandler {
+	return &AdminMemberHandler{svc: svc, subs: subs, aiRepo: aiRepo, aiSvc: aiSvc, log: log}
 }
 
 // ── Request DTOs ──────────────────────────────────────────────────────────────
@@ -74,6 +82,8 @@ type createMemberReq struct {
 	Occupation       *string  `json:"occupation"`
 	NID              *string  `json:"nid"`
 	EmergencyPhone   *string  `json:"emergency_phone"`
+	IsAIAllowed        *bool    `json:"is_ai_allowed"`
+	IsAIFoodLogAllowed *bool    `json:"is_ai_food_log_allowed"`
 }
 
 type updateMemberReq struct {
@@ -115,6 +125,13 @@ func (h *AdminMemberHandler) CreateMember(c *fiber.Ctx) error {
 		return nil
 	}
 
+	var createdByAdminID *uuid.UUID
+	if adminIDStr, ok := c.Locals("user_id").(string); ok && adminIDStr != "" {
+		if parsed, err := uuid.Parse(adminIDStr); err == nil {
+			createdByAdminID = &parsed
+		}
+	}
+
 	svcReq := services.CreateMemberRequest{
 		Name:             req.Name,
 		Phone:            req.Phone,
@@ -130,6 +147,9 @@ func (h *AdminMemberHandler) CreateMember(c *fiber.Ctx) error {
 		Occupation:       req.Occupation,
 		NID:              req.NID,
 		EmergencyPhone:   req.EmergencyPhone,
+		CreatedByAdminID: createdByAdminID,
+		IsAIAllowed:        req.IsAIAllowed != nil && *req.IsAIAllowed,
+		IsAIFoodLogAllowed: req.IsAIFoodLogAllowed != nil && *req.IsAIFoodLogAllowed,
 	}
 	if req.JoinDate != nil {
 		t, err := parseDate(*req.JoinDate)
@@ -184,7 +204,15 @@ func (h *AdminMemberHandler) ListMembers(c *fiber.Ctx) error {
 			return utils.ErrorResponse(c, fiber.StatusInternalServerError,
 				"INTERNAL_ERROR", "Could not fetch expiring members", nil)
 		}
-		return utils.PaginatedResponse(c, members, 1, len(members), len(members))
+		var enrichedMembers []memberDetailResp
+		for _, m := range members {
+			activeSub, _ := h.subs.GetActiveSubscriptionEnriched(c.UserContext(), m.ID)
+			enrichedMembers = append(enrichedMembers, memberDetailResp{
+				Member:             m,
+				ActiveSubscription: activeSub,
+			})
+		}
+		return utils.PaginatedResponse(c, enrichedMembers, 1, len(enrichedMembers), len(enrichedMembers))
 	}
 
 	var status *string
@@ -208,7 +236,16 @@ func (h *AdminMemberHandler) ListMembers(c *fiber.Ctx) error {
 			"INTERNAL_ERROR", "Could not fetch members", nil)
 	}
 
-	return utils.PaginatedResponse(c, members, page, limit, int(total))
+	var enrichedMembers []memberDetailResp
+	for _, m := range members {
+		activeSub, _ := h.subs.GetActiveSubscriptionEnriched(c.UserContext(), m.ID)
+		enrichedMembers = append(enrichedMembers, memberDetailResp{
+			Member:             m,
+			ActiveSubscription: activeSub,
+		})
+	}
+
+	return utils.PaginatedResponse(c, enrichedMembers, page, limit, int(total))
 }
 
 // GetMember godoc
@@ -417,6 +454,366 @@ func parsePagination(c *fiber.Ctx) (page, limit int) {
 	return
 }
 
+// UpdateMemberProfilePicture godoc
+// @Summary     Update member profile picture (admin)
+// @Tags        admin/members
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param       id path string true "Member ID"
+// @Param       body body map[string]string true "Request body (profile_picture_url)"
+// @Success     200 {object} map[string]any
+// @Router      /api/v1/admin/members/{id}/profile-picture [patch]
+func (h *AdminMemberHandler) UpdateMemberProfilePicture(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "INVALID_ID", "Invalid member ID format", nil)
+	}
+
+	admin, _ := c.Locals("admin_obj").(*models.Admin)
+	if admin == nil {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "UNAUTHORIZED", "Unauthorized", nil)
+	}
+
+	var req struct {
+		ProfilePictureURL string `json:"profile_picture_url"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "BAD_REQUEST", "Invalid request body", nil)
+	}
+
+	if req.ProfilePictureURL == "" {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "BAD_REQUEST", "Profile picture URL cannot be empty", nil)
+	}
+
+	// Fetch member to ensure they exist and get current profile picture
+	member, err := h.svc.GetMember(ctx, id)
+	if err != nil {
+		if errors.Is(err, services.ErrNotFound) {
+			return utils.ErrorResponse(c, fiber.StatusNotFound, "NOT_FOUND", "Member not found", nil)
+		}
+		h.log.Error("Failed to fetch member", "error", err, "id", id)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch member", nil)
+	}
+
+	if member.ProfilePictureURL != nil && *member.ProfilePictureURL == req.ProfilePictureURL {
+		return utils.SuccessResponse(c, fiber.StatusOK, nil) // no change
+	}
+
+	// Enforce 3 update limit for admin updates
+	count, err := h.aiRepo.CountProfilePictureUpdates(ctx, sqlcdb.CountProfilePictureUpdatesParams{
+		MemberID:      member.ID,
+		UpdatedByRole: "admin",
+	})
+	if err != nil {
+		h.log.Error("Failed to count profile picture updates", "member_id", member.ID, "error", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to verify update limits", nil)
+	}
+
+	if count >= 3 {
+		return utils.ErrorResponse(c, fiber.StatusForbidden, "LIMIT_REACHED", "You have reached the maximum allowed profile picture updates (3) for this member.", nil)
+	}
+
+	budgetLevel := sql.NullString{}
+	if member.BudgetLevel != nil {
+		budgetLevel = sql.NullString{String: *member.BudgetLevel, Valid: true}
+	}
+
+	// Update the profile picture
+	_, err = h.aiRepo.UpdateMemberAIProfile(ctx, sqlcdb.UpdateMemberAIProfileParams{
+		ID:                member.ID,
+		IsAiAllowed:       member.IsAIAllowed,
+		BudgetLevel:       budgetLevel,
+		ProfilePictureUrl: sql.NullString{String: req.ProfilePictureURL, Valid: true},
+	})
+	if err != nil {
+		h.log.Error("Failed to update AI profile picture", "member_id", member.ID, "error", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to update profile picture", nil)
+	}
+
+	// Record the update
+	_, err = h.aiRepo.RecordProfilePictureUpdate(ctx, sqlcdb.RecordProfilePictureUpdateParams{
+		MemberID:      member.ID,
+		UpdatedByRole: "admin",
+		UpdatedByID:   admin.ID,
+	})
+	if err != nil {
+		h.log.Error("Failed to record profile picture update", "member_id", member.ID, "error", err)
+		// We still return success as the picture was updated, but we log the error
+	}
+
+	return utils.SuccessResponse(c, fiber.StatusOK, fiber.Map{
+		"message": "Profile picture updated successfully",
+	})
+}
+
 func parseDate(s string) (time.Time, error) {
 	return time.Parse("2006-01-02", s)
 }
+
+// UpdateMemberAI godoc
+// @Summary     Update member AI settings
+// @Tags        admin/members
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param       id path string true "Member ID"
+// @Param       body body map[string]any true "Request body (is_ai_allowed, budget_level)"
+// @Success     200 {object} map[string]any
+// @Router      /api/v1/admin/members/{id}/ai [patch]
+func (h *AdminMemberHandler) UpdateMemberAI(c *fiber.Ctx) error {
+	role, _ := c.Locals("role").(string)
+	if role != "superadmin" {
+		return utils.ErrorResponse(c, fiber.StatusForbidden, "FORBIDDEN", "Only Superadmins can modify member AI feature permissions", nil)
+	}
+
+	ctx := c.UserContext()
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "INVALID_ID", "Member ID must be a valid UUID", nil)
+	}
+
+	var req struct {
+		IsAiAllowed        *bool   `json:"is_ai_allowed" validate:"required"`
+		IsAiFoodLogAllowed *bool   `json:"is_ai_food_log_allowed"`
+		BudgetLevel        *string `json:"budget_level"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "BAD_REQUEST", "Invalid request body", nil)
+	}
+	if req.IsAiAllowed == nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "VALIDATION_ERROR", "is_ai_allowed is required", nil)
+	}
+
+	member, err := h.svc.GetMember(ctx, id)
+	if err != nil {
+		if errors.Is(err, services.ErrNotFound) {
+			return utils.ErrorResponse(c, fiber.StatusNotFound, "NOT_FOUND", "Member not found", nil)
+		}
+		h.log.ErrorContext(ctx, "update member ai: get member", "error", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch member", nil)
+	}
+
+	isAiFoodLogAllowed := member.IsAIFoodLogAllowed
+	if req.IsAiFoodLogAllowed != nil {
+		isAiFoodLogAllowed = *req.IsAiFoodLogAllowed
+	}
+
+	budgetLevel := sql.NullString{}
+	if req.BudgetLevel != nil {
+		budgetLevel = sql.NullString{String: *req.BudgetLevel, Valid: true}
+	} else if member.BudgetLevel != nil {
+		budgetLevel = sql.NullString{String: *member.BudgetLevel, Valid: true}
+	}
+
+	profilePic := sql.NullString{}
+	if member.ProfilePictureURL != nil {
+		profilePic = sql.NullString{String: *member.ProfilePictureURL, Valid: true}
+	}
+
+	_, err = h.aiRepo.UpdateMemberAIProfile(ctx, sqlcdb.UpdateMemberAIProfileParams{
+		ID:                 member.ID,
+		BudgetLevel:        budgetLevel,
+		IsAiAllowed:        *req.IsAiAllowed,
+		IsAiFoodLogAllowed: isAiFoodLogAllowed,
+		ProfilePictureUrl:  profilePic,
+	})
+	if err != nil {
+		h.log.ErrorContext(ctx, "update member ai profile", "error", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to update AI profile", nil)
+	}
+
+	// Invalidate cache
+	_ = h.svc.InvalidateCache(ctx, member.ID, member.Phone)
+
+	// Fetch fresh member
+	freshMember, err := h.svc.GetMember(ctx, id)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch updated member", nil)
+	}
+
+	return utils.SuccessResponse(c, fiber.StatusOK, freshMember)
+}
+
+// GenerateMemberDietChart godoc
+// @Summary     Generate AI diet chart for a member
+// @Tags        admin/members
+// @Security    BearerAuth
+// @Produce     json
+// @Param       id path string true "Member ID"
+// @Success     200 {object} map[string]any
+// @Router      /api/v1/admin/members/{id}/diet-chart [post]
+func (h *AdminMemberHandler) GenerateMemberDietChart(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "INVALID_ID", "Member ID must be a valid UUID", nil)
+	}
+
+	// Fetch member
+	member, err := h.svc.GetMember(ctx, id)
+	if err != nil {
+		if errors.Is(err, services.ErrNotFound) {
+			return utils.ErrorResponse(c, fiber.StatusNotFound, "NOT_FOUND", "Member not found", nil)
+		}
+		h.log.ErrorContext(ctx, "generate member diet chart: get member", "error", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch member", nil)
+	}
+
+	// Check if the member has AI allowed. (Admin can trigger this, but let's check or override if needed. It's safe to just proceed or make sure budget level is set)
+	role, _ := c.Locals("role").(string)
+	if role != "superadmin" {
+		count, err := h.aiRepo.CountDietChartsGenerated(ctx, member.ID)
+		if err != nil {
+			h.log.ErrorContext(ctx, "failed to count diet charts", "error", err, "member_id", member.ID)
+			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to check diet generation limit", nil)
+		}
+		if count >= 3 {
+			return utils.ErrorResponse(c, fiber.StatusForbidden, "RATE_LIMIT_EXCEEDED", "Admins can generate at most 3 diet charts per member. Please contact a Superadmin to bypass this limit.", nil)
+		}
+	}
+
+	if member.BudgetLevel == nil || *member.BudgetLevel == "" {
+		// Set a default budget level if not set
+		defaultBudget := "Low"
+		member.BudgetLevel = &defaultBudget
+	}
+
+	language := c.Query("language", "en")
+	if language != "bn" {
+		language = "en"
+	}
+
+	fmt.Printf("Generating diet chart for member %s (ID: %s) with budget level: %s, language: %s\n", member.Name, member.ID, *member.BudgetLevel, language)
+
+	dietJSON, tokens, err := h.aiSvc.GenerateDietChart(ctx, member, language)
+	if err != nil {
+		h.log.ErrorContext(ctx, "generate diet chart failed", "error", err, "member_id", member.ID)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to generate diet chart", nil)
+	}
+
+	// Persist the generated diet chart to the member's profile as a pending chart awaiting admin review
+	_, err = h.aiRepo.UpdateMemberPendingDietChart(ctx, sqlcdb.UpdateMemberPendingDietChartParams{
+		ID: member.ID,
+		PendingDietChartJson: pqtype.NullRawMessage{
+			RawMessage: dietJSON,
+			Valid:      true,
+		},
+	})
+	if err != nil {
+		h.log.ErrorContext(ctx, "failed to persist generated diet chart", "error", err, "member_id", member.ID)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to persist diet chart", nil)
+	}
+
+	// Invalidate the cache
+	_ = h.svc.InvalidateCache(ctx, member.ID, member.Phone)
+
+	// Log tokens
+	_, _ = h.aiRepo.LogAITokenUsage(ctx, sqlcdb.LogAITokenUsageParams{
+		MemberID:         member.ID,
+		FeatureUsed:      "diet_chart",
+		PromptTokens:     0,
+		CompletionTokens: 0,
+		TotalTokens:      int32(tokens),
+	})
+
+	if member.CreatedByAdminID != nil {
+		cost := float64(tokens) * 0.000002 // estimate $0.002 per 1K tokens
+		_, _ = h.aiRepo.LogAIAuditUsage(ctx, sqlcdb.LogAIAuditUsageParams{
+			MemberID:         member.ID,
+			AdminID:          *member.CreatedByAdminID,
+			PromptType:       "diet_chart",
+			PromptText:       "Admin-initiated personalized diet generation request",
+			AiResponseJson:   dietJSON,
+			PromptTokens:     0,
+			CompletionTokens: 0,
+			TotalTokens:      int32(tokens),
+			EstimatedCost:    cost,
+		})
+	}
+
+	return utils.SuccessResponse(c, fiber.StatusOK, dietJSON)
+}
+
+// ApproveMemberDietChart godoc
+// @Summary     Approve pending AI diet chart for a member
+// @Tags        admin/members
+// @Security    BearerAuth
+// @Produce     json
+// @Param       id path string true "Member ID"
+// @Success     200 {object} map[string]any
+// @Router      /api/v1/admin/members/{id}/diet-chart/approve [post]
+func (h *AdminMemberHandler) ApproveMemberDietChart(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "INVALID_ID", "Member ID must be a valid UUID", nil)
+	}
+
+	member, err := h.svc.GetMember(ctx, id)
+	if err != nil {
+		if errors.Is(err, services.ErrNotFound) {
+			return utils.ErrorResponse(c, fiber.StatusNotFound, "NOT_FOUND", "Member not found", nil)
+		}
+		h.log.ErrorContext(ctx, "approve member diet chart: get member", "error", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch member", nil)
+	}
+
+	_, err = h.aiRepo.ApprovePendingDietChart(ctx, member.ID)
+	if err != nil {
+		h.log.ErrorContext(ctx, "approve pending diet chart failed", "error", err, "member_id", member.ID)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to approve diet chart", nil)
+	}
+
+	_ = h.svc.InvalidateCache(ctx, member.ID, member.Phone)
+
+	freshMember, err := h.svc.GetMember(ctx, id)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch updated member", nil)
+	}
+
+	return utils.SuccessResponse(c, fiber.StatusOK, freshMember)
+}
+
+// DeclineMemberDietChart godoc
+// @Summary     Decline/discard pending AI diet chart for a member
+// @Tags        admin/members
+// @Security    BearerAuth
+// @Produce     json
+// @Param       id path string true "Member ID"
+// @Success     200 {object} map[string]any
+// @Router      /api/v1/admin/members/{id}/diet-chart/decline [post]
+func (h *AdminMemberHandler) DeclineMemberDietChart(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "INVALID_ID", "Member ID must be a valid UUID", nil)
+	}
+
+	member, err := h.svc.GetMember(ctx, id)
+	if err != nil {
+		if errors.Is(err, services.ErrNotFound) {
+			return utils.ErrorResponse(c, fiber.StatusNotFound, "NOT_FOUND", "Member not found", nil)
+		}
+		h.log.ErrorContext(ctx, "decline member diet chart: get member", "error", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch member", nil)
+	}
+
+	_, err = h.aiRepo.DeclinePendingDietChart(ctx, member.ID)
+	if err != nil {
+		h.log.ErrorContext(ctx, "decline pending diet chart failed", "error", err, "member_id", member.ID)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to decline diet chart", nil)
+	}
+
+	_ = h.svc.InvalidateCache(ctx, member.ID, member.Phone)
+
+	freshMember, err := h.svc.GetMember(ctx, id)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch updated member", nil)
+	}
+
+	return utils.SuccessResponse(c, fiber.StatusOK, freshMember)
+}
+

@@ -13,10 +13,20 @@ import (
 )
 
 type Querier interface {
+	AICostByGym(ctx context.Context, arg AICostByGymParams) ([]AICostByGymRow, error)
+	AIHeavyUsers(ctx context.Context, arg AIHeavyUsersParams) ([]AIHeavyUsersRow, error)
+	ApprovePendingDietChart(ctx context.Context, id uuid.UUID) (Member, error)
+	CountAIAuditLogs(ctx context.Context, arg CountAIAuditLogsParams) (int64, error)
+	CountDailyFoodUploads(ctx context.Context, arg CountDailyFoodUploadsParams) (int64, error)
+	CountDietChartsGenerated(ctx context.Context, memberID uuid.UUID) (int64, error)
+	CountExpenses(ctx context.Context, arg CountExpensesParams) (int64, error)
 	CountMembers(ctx context.Context, arg CountMembersParams) (int64, error)
+	CountProfilePictureUpdates(ctx context.Context, arg CountProfilePictureUpdatesParams) (int64, error)
 	CreateAdmin(ctx context.Context, arg CreateAdminParams) (Admin, error)
 	CreateDietLog(ctx context.Context, arg CreateDietLogParams) (DietLog, error)
+	CreateExpense(ctx context.Context, arg CreateExpenseParams) (Expense, error)
 	CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error)
+	CreateMemberFoodLog(ctx context.Context, arg CreateMemberFoodLogParams) (MemberFoodLog, error)
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error)
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
 	CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payment, error)
@@ -24,14 +34,26 @@ type Querier interface {
 	CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error)
 	CreateWeightLog(ctx context.Context, arg CreateWeightLogParams) (WeightLog, error)
 	CreateWorkoutLog(ctx context.Context, arg CreateWorkoutLogParams) (WorkoutLog, error)
+	DeclinePendingDietChart(ctx context.Context, id uuid.UUID) (Member, error)
 	DeleteFCMToken(ctx context.Context, token string) error
 	DeleteFCMTokensByMemberID(ctx context.Context, memberID uuid.UUID) error
 	DeletePlanTemplate(ctx context.Context, id uuid.UUID) error
+	GetAIPrompt(ctx context.Context, arg GetAIPromptParams) (AiPrompt, error)
+	// Returns AI token usage and cost for a single member
+	GetAITokenUsageForUser(ctx context.Context, id uuid.UUID) (GetAITokenUsageForUserRow, error)
+	// Returns AI token usage and cost per Gym Admin
+	GetAITokenUsagePerAdmin(ctx context.Context) ([]GetAITokenUsagePerAdminRow, error)
+	// Returns AI token usage and cost per member
+	GetAITokenUsagePerUser(ctx context.Context) ([]GetAITokenUsagePerUserRow, error)
 	GetActiveSubscriptionByMemberID(ctx context.Context, memberID uuid.UUID) (Subscription, error)
 	GetAdminByEmail(ctx context.Context, email string) (Admin, error)
 	GetAdminByID(ctx context.Context, id uuid.UUID) (Admin, error)
 	GetAdminByPhone(ctx context.Context, phone sql.NullString) (Admin, error)
-	GetAllSettings(ctx context.Context) ([]Setting, error)
+	GetAllSettings(ctx context.Context, adminID uuid.NullUUID) ([]GetAllSettingsRow, error)
+	GetDailyFinancialsByMonth(ctx context.Context, arg GetDailyFinancialsByMonthParams) ([]GetDailyFinancialsByMonthRow, error)
+	// Group operational costs by category over a date range
+	GetExpensesByCategory(ctx context.Context, arg GetExpensesByCategoryParams) ([]GetExpensesByCategoryRow, error)
+	GetExpensesSummary(ctx context.Context, arg GetExpensesSummaryParams) (GetExpensesSummaryRow, error)
 	// Used to build the conversation summary list.
 	GetLatestDirectMessageByMember(ctx context.Context, memberID uuid.UUID) (Message, error)
 	GetLatestWeightLogByMemberID(ctx context.Context, memberID uuid.UUID) (WeightLog, error)
@@ -39,23 +61,32 @@ type Querier interface {
 	GetMemberByPhone(ctx context.Context, phone string) (Member, error)
 	GetPaymentSummaryByMonth(ctx context.Context, month time.Time) (GetPaymentSummaryByMonthRow, error)
 	GetPlanTemplateByID(ctx context.Context, id uuid.UUID) (PlanTemplate, error)
-	GetSettingByKey(ctx context.Context, key string) (Setting, error)
+	// Group subscription payments by method over a date range
+	GetRevenueByPaymentMethod(ctx context.Context, arg GetRevenueByPaymentMethodParams) ([]GetRevenueByPaymentMethodRow, error)
+	// Group subscription payments by plan name over a date range
+	GetRevenueByPlanType(ctx context.Context, arg GetRevenueByPlanTypeParams) ([]GetRevenueByPlanTypeRow, error)
+	GetSettingByKey(ctx context.Context, arg GetSettingByKeyParams) (Setting, error)
+	GetSystemSetting(ctx context.Context, arg GetSystemSettingParams) (SystemSetting, error)
+	ListAIAuditLogs(ctx context.Context, arg ListAIAuditLogsParams) ([]SuperadminAiAuditLog, error)
+	ListAIPrompts(ctx context.Context) ([]AiPrompt, error)
 	ListBroadcasts(ctx context.Context, arg ListBroadcastsParams) ([]Message, error)
 	// Returns one row per member who has exchanged a direct message with admin.
 	ListConversationMemberIDs(ctx context.Context) ([]interface{}, error)
 	ListDietLogsByMemberID(ctx context.Context, arg ListDietLogsByMemberIDParams) ([]DietLog, error)
 	// Returns the direct conversation between admin and a specific member.
 	ListDirectMessagesByMember(ctx context.Context, memberID uuid.UUID) ([]Message, error)
-	// Used by the renewal reminder scheduler. Returns active subs ending within @days days.
-	ListExpiringSubscriptions(ctx context.Context, days int32) ([]ListExpiringSubscriptionsRow, error)
+	ListExpenses(ctx context.Context, arg ListExpensesParams) ([]Expense, error)
+	// Used by the renewal reminder scheduler. Returns active subs ending within their gym's nudge days.
+	ListExpiringSubscriptions(ctx context.Context) ([]ListExpiringSubscriptionsRow, error)
 	ListFCMTokensByMemberID(ctx context.Context, memberID uuid.UUID) ([]FcmToken, error)
+	ListMemberFoodLogs(ctx context.Context, arg ListMemberFoodLogsParams) ([]MemberFoodLog, error)
 	// All messages relevant to a member: direct (both directions) + all broadcasts.
 	ListMemberMessages(ctx context.Context, arg ListMemberMessagesParams) ([]Message, error)
 	ListMembers(ctx context.Context, arg ListMembersParams) ([]Member, error)
-	// Active members who have not logged weight in the last @days days.
-	ListMembersNeedingWeightReminder(ctx context.Context, days int32) ([]Member, error)
-	// Returns active members whose active subscription ends within @days days.
-	ListMembersWithExpiringSoon(ctx context.Context, days int32) ([]Member, error)
+	// Active members who have not logged weight in their gym's weight reminder days.
+	ListMembersNeedingWeightReminder(ctx context.Context) ([]Member, error)
+	// Returns active members whose active subscription ends within their gym's nudge days.
+	ListMembersWithExpiringSoon(ctx context.Context) ([]Member, error)
 	// Supports optional date range; pass NULL for from_time / to_time to skip filter.
 	ListPaymentsByMember(ctx context.Context, arg ListPaymentsByMemberParams) ([]Payment, error)
 	// Pulled every minute by the scheduler to dispatch overdue notifications.
@@ -65,25 +96,35 @@ type Querier interface {
 	// Optional date range: pass NULL for from_time / to_time to skip that bound.
 	ListWeightLogsByMember(ctx context.Context, arg ListWeightLogsByMemberParams) ([]WeightLog, error)
 	ListWorkoutLogsByMemberID(ctx context.Context, arg ListWorkoutLogsByMemberIDParams) ([]WorkoutLog, error)
+	LogAIAuditUsage(ctx context.Context, arg LogAIAuditUsageParams) (SuperadminAiAuditLog, error)
+	LogAITokenUsage(ctx context.Context, arg LogAITokenUsageParams) (AiTokenLog, error)
 	// Member opens their inbox: mark unread admin→member messages as read.
 	MarkAdminMessagesAsRead(ctx context.Context, memberID uuid.NullUUID) error
 	// Admin opens a conversation: mark unread member→admin messages as read.
 	MarkMemberMessagesAsRead(ctx context.Context, memberID uuid.UUID) error
+	RecordProfilePictureUpdate(ctx context.Context, arg RecordProfilePictureUpdateParams) (ProfilePictureUpdate, error)
 	// Marks all current active subscriptions for a member as 'replaced' before assigning a new one.
 	ReplaceActiveSubscriptions(ctx context.Context, memberID uuid.UUID) error
 	// Move a notification past the quiet window without changing its status.
 	RescheduleNotification(ctx context.Context, arg RescheduleNotificationParams) error
+	UpdateAIPromptGlobal(ctx context.Context, arg UpdateAIPromptGlobalParams) error
+	UpdateAIPromptTenant(ctx context.Context, arg UpdateAIPromptTenantParams) error
 	// In-place patch of the current active subscription (price, start date, end date, note).
 	UpdateActiveSubscription(ctx context.Context, arg UpdateActiveSubscriptionParams) (Subscription, error)
 	UpdateAdminPassword(ctx context.Context, arg UpdateAdminPasswordParams) error
 	UpdateMember(ctx context.Context, arg UpdateMemberParams) (Member, error)
+	UpdateMemberAIProfile(ctx context.Context, arg UpdateMemberAIProfileParams) (Member, error)
+	UpdateMemberDietChart(ctx context.Context, arg UpdateMemberDietChartParams) (Member, error)
 	UpdateMemberPassword(ctx context.Context, arg UpdateMemberPasswordParams) error
+	UpdateMemberPendingDietChart(ctx context.Context, arg UpdateMemberPendingDietChartParams) (Member, error)
 	UpdateMemberStatus(ctx context.Context, arg UpdateMemberStatusParams) error
 	UpdateNotificationStatus(ctx context.Context, arg UpdateNotificationStatusParams) error
 	UpdatePlanTemplate(ctx context.Context, arg UpdatePlanTemplateParams) (PlanTemplate, error)
 	UpdateSubscriptionStatus(ctx context.Context, arg UpdateSubscriptionStatusParams) error
+	UpdateSystemSetting(ctx context.Context, arg UpdateSystemSettingParams) error
 	UpsertFCMToken(ctx context.Context, arg UpsertFCMTokenParams) (FcmToken, error)
-	UpsertSetting(ctx context.Context, arg UpsertSettingParams) (Setting, error)
+	UpsertSettingGlobal(ctx context.Context, arg UpsertSettingGlobalParams) (Setting, error)
+	UpsertSettingTenant(ctx context.Context, arg UpsertSettingTenantParams) (Setting, error)
 }
 
 var _ Querier = (*Queries)(nil)

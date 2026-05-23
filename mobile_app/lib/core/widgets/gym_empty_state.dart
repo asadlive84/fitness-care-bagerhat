@@ -36,9 +36,10 @@ class GymEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: AppSpacing.paddingAll24,
-        child: Column(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: AppSpacing.paddingAll24,
+          child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             SizedBox(
@@ -79,6 +80,7 @@ class GymEmptyState extends StatelessWidget {
               ),
             ],
           ],
+        ),
         ),
       ),
     );

@@ -14,12 +14,13 @@ import (
 
 // WeightLogService handles weight log business logic.
 type WeightLogService struct {
-	logs repositories.WeightLogRepository
+	logs    repositories.WeightLogRepository
+	members repositories.MemberRepository
 }
 
 // NewWeightLogService constructs a WeightLogService.
-func NewWeightLogService(logs repositories.WeightLogRepository) *WeightLogService {
-	return &WeightLogService{logs: logs}
+func NewWeightLogService(logs repositories.WeightLogRepository, members repositories.MemberRepository) *WeightLogService {
+	return &WeightLogService{logs: logs, members: members}
 }
 
 // LogWeight records a new weight entry. loggedAt defaults to now if zero.
@@ -30,6 +31,13 @@ func (s *WeightLogService) LogWeight(ctx context.Context, memberID uuid.UUID, we
 	if err := s.logs.Create(ctx, memberID, weightKg, loggedAt); err != nil {
 		return nil, fmt.Errorf("log weight: %w", err)
 	}
+
+	// Update the member's current_weight so the profile reflects the latest log
+	if m, err := s.members.GetByID(ctx, memberID); err == nil {
+		m.CurrentWeight = &weightKg
+		_ = s.members.Update(ctx, m)
+	}
+
 	return &models.WeightLog{ID: uuid.New(), MemberID: memberID, WeightKg: weightKg, LoggedAt: loggedAt}, nil
 }
 

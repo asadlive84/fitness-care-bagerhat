@@ -69,12 +69,12 @@ class _Content extends StatelessWidget {
                 value: stats.totalMembers.toString(),
                 icon: PhosphorIcons.users(),
                 color: AppColors.primary,
-                trend: '+12%',
+                trend: stats.totalMembers > 0 ? '+12%' : null,
                 onTap: () => context.go(Routes.adminMembers),
               ),
               StatCard(
                 label: 'Active Plans',
-                value: stats.activeMembers.toString(),
+                value: stats.activePlans.toString(),
                 icon: PhosphorIcons.clipboardText(),
                 color: AppColors.info,
                 onTap: () => context.go(Routes.adminPlans),
@@ -98,7 +98,10 @@ class _Content extends StatelessWidget {
               borderRadius: AppSpacing.r24,
               border: Border.all(color: AppColors.divider),
             ),
-            child: RevenueChart(data: stats.revenueChart),
+            child: RevenueChart(
+              data: stats.revenueChart,
+              monthlyRevenue: stats.monthlyRevenue,
+            ),
           ),
           const SizedBox(height: AppSpacing.s40),
           

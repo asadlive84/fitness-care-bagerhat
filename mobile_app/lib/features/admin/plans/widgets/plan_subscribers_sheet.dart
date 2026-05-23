@@ -1,3 +1,4 @@
+import 'package:fitness_care_bagerhat/app/router/routes.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_colors.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_spacing.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
@@ -5,6 +6,7 @@ import 'package:fitness_care_bagerhat/core/extensions/datetime_ext.dart';
 import 'package:fitness_care_bagerhat/core/extensions/num_ext.dart';
 import 'package:fitness_care_bagerhat/features/admin/plans/plans_response.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 /// Bottom sheet listing all active subscribers for a single plan.
@@ -205,10 +207,15 @@ class _SubscriberCard extends StatelessWidget {
         .inDays;
     final isExpired = daysLeft < 0;
 
-    return Padding(
-      padding:
-          const EdgeInsets.symmetric(vertical: AppSpacing.s12),
-      child: Column(
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context); // Close the bottom sheet first
+        context.push(Routes.adminMemberDetail(sub.memberId));
+      },
+      child: Padding(
+        padding:
+            const EdgeInsets.symmetric(vertical: AppSpacing.s12, horizontal: AppSpacing.s16),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Member row ───────────────────────────────────────────────
@@ -344,7 +351,7 @@ class _SubscriberCard extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _paymentBadge(bool isFullyPaid, double moneyLeft) {

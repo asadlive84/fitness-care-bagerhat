@@ -203,4 +203,47 @@ class MemberRepository {
   Future<void> deleteMember(String memberId) async {
     await _apiClient.delete('/api/v1/admin/members/$memberId');
   }
+
+  Future<Member> updateAiSettings(String id, {required bool isAiAllowed, required bool isAiFoodLogAllowed, String? budgetLevel}) async {
+    final response = await _apiClient.patch(
+      '/api/v1/admin/members/$id/ai',
+      data: {
+        'is_ai_allowed': isAiAllowed,
+        'is_ai_food_log_allowed': isAiFoodLogAllowed,
+        if (budgetLevel != null) 'budget_level': budgetLevel,
+      },
+    );
+    final apiResponse = ApiResponse.fromJson(
+      response.data as Map<String, dynamic>,
+      (json) => Member.fromJson(json as Map<String, dynamic>),
+    );
+    return apiResponse.data!;
+  }
+
+  Future<Member> approveDietChart(String id) async {
+    final response = await _apiClient.post('/api/v1/admin/members/$id/diet-chart/approve');
+    final apiResponse = ApiResponse.fromJson(
+      response.data as Map<String, dynamic>,
+      (json) => Member.fromJson(json as Map<String, dynamic>),
+    );
+    return apiResponse.data!;
+  }
+
+  Future<Member> declineDietChart(String id) async {
+    final response = await _apiClient.post('/api/v1/admin/members/$id/diet-chart/decline');
+    final apiResponse = ApiResponse.fromJson(
+      response.data as Map<String, dynamic>,
+      (json) => Member.fromJson(json as Map<String, dynamic>),
+    );
+    return apiResponse.data!;
+  }
+
+  Future<dynamic> generateDietChart(String id, {String language = 'en'}) async {
+    final response = await _apiClient.post('/api/v1/admin/members/$id/diet-chart?language=$language');
+    final apiResponse = ApiResponse.fromJson(
+      response.data as Map<String, dynamic>,
+      (json) => json,
+    );
+    return apiResponse.data;
+  }
 }

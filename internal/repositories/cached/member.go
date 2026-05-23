@@ -150,6 +150,11 @@ func (r *MemberRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+func (r *MemberRepo) InvalidateCache(ctx context.Context, id uuid.UUID, phone string) error {
+	r.invalidateMember(ctx, id, phone)
+	return nil
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 func (r *MemberRepo) invalidateMember(ctx context.Context, id uuid.UUID, phone string) {

@@ -38,7 +38,11 @@ func (s *AuthService) LoginAdmin(ctx context.Context, email, password string) (*
 		return nil, ErrInvalidCredentials
 	}
 
-	pair, err := s.jwt.GenerateTokenPair(creds.AdminID.String(), auth.RoleAdmin)
+	role := creds.Role
+	if role == "" {
+		role = auth.RoleAdmin
+	}
+	pair, err := s.jwt.GenerateTokenPair(creds.AdminID.String(), role)
 	if err != nil {
 		return nil, fmt.Errorf("generate admin tokens: %w", err)
 	}

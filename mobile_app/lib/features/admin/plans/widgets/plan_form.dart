@@ -23,6 +23,7 @@ class _PlanFormState extends ConsumerState<PlanForm> {
   late final TextEditingController _priceController;
   late final TextEditingController _durationController;
   bool _isLoading = false;
+  String _billingType = 'prepaid';
 
   @override
   void initState() {
@@ -34,6 +35,7 @@ class _PlanFormState extends ConsumerState<PlanForm> {
     _durationController = TextEditingController(
       text: widget.plan?.durationDays.toString() ?? '',
     );
+    _billingType = widget.plan?.billingType ?? 'prepaid';
   }
 
   @override
@@ -70,6 +72,7 @@ class _PlanFormState extends ConsumerState<PlanForm> {
         'name': _nameController.text.trim(),
         'default_price': price,
         'duration_days': days,
+        'billing_type': _billingType,
       };
 
       if (widget.plan == null) {
@@ -158,6 +161,28 @@ class _PlanFormState extends ConsumerState<PlanForm> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.s20),
+          DropdownButtonFormField<String>(
+            value: _billingType,
+            decoration: InputDecoration(
+              labelText: 'Billing Type',
+              prefixIcon: Icon(PhosphorIcons.creditCard()),
+              border: OutlineInputBorder(
+                borderRadius: AppSpacing.r12,
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+            ),
+            items: const [
+              DropdownMenuItem(value: 'prepaid', child: Text('Prepaid (Pay before)')),
+              DropdownMenuItem(value: 'postpaid', child: Text('Postpaid (Pay after)')),
+            ],
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _billingType = value);
+              }
+            },
           ),
           const SizedBox(height: AppSpacing.s40),
           GymButton.primary(

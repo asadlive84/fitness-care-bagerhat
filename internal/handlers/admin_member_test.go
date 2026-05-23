@@ -63,6 +63,9 @@ func (f *fakeMemberSvc) ResetMemberPassword(_ context.Context, _ uuid.UUID) (*se
 func (f *fakeMemberSvc) DeleteMember(_ context.Context, _ uuid.UUID) error {
 	return f.deleteErr
 }
+func (f *fakeMemberSvc) InvalidateCache(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
 
 // ── Test app factory ──────────────────────────────────────────────────────────
 
@@ -78,7 +81,7 @@ func newTestApp(svc *fakeMemberSvc) *fiber.App {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}})
 
-	h := handlers.NewAdminMemberHandlerWithSvc(svc, &fakeEnrichedSubSvc{}, slog.Default())
+	h := handlers.NewAdminMemberHandlerWithSvc(svc, &fakeEnrichedSubSvc{}, nil, nil, slog.Default())
 	app.Post("/admin/members", h.CreateMember)
 	app.Get("/admin/members", h.ListMembers)
 	app.Get("/admin/members/:id", h.GetMember)

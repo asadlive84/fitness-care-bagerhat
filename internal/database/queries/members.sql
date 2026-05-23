@@ -1,6 +1,6 @@
 -- name: CreateMember :one
-INSERT INTO members (id, name, phone, password_hash, gender, goal, join_date, current_weight, status, must_change_password)
-VALUES (@id, @name, @phone, @password_hash, @gender, @goal, @join_date, @current_weight, @status, @must_change_password)
+INSERT INTO members (id, name, phone, password_hash, gender, goal, join_date, current_weight, status, must_change_password, created_by_admin_id)
+VALUES (@id, @name, @phone, @password_hash, @gender, @goal, @join_date, @current_weight, @status, @must_change_password, @created_by_admin_id)
 RETURNING *;
 
 -- name: GetMemberByID :one
@@ -57,12 +57,59 @@ SET password_hash        = @password_hash,
 WHERE id = @id;
 
 -- name: ListMembersWithExpiringSoon :many
--- Returns active members whose active subscription ends within @days days.
+-- Returns active members whose active subscription ends within their gym's nudge days.
+WITH member_nudge_days AS (
+    SELECT m.id AS member_id,
+           COALESCE(
+               (
+                   SELECT (s.value->>0)::int
+                   FROM settings s
+                   WHERE s.key = 'nudge_days'
+                     AND (s.admin_id = m.created_by_admin_id OR s.admin_id IS NULL)
+                   ORDER BY s.admin_id DESC NULLS LAST
+                   LIMIT 1
+               ),
+               7
+           ) AS days
+    FROM members m
+)
 SELECT DISTINCT m.*
 FROM members m
 JOIN subscriptions s ON s.member_id = m.id
+JOIN member_nudge_days mnd ON mnd.member_id = m.id
 WHERE m.status     = 'active'
   AND s.status     = 'active'
   AND s.end_date   >= CURRENT_DATE
-  AND s.end_date   <= CURRENT_DATE + (sqlc.arg('days')::int * INTERVAL '1 day')
+  AND s.end_date   <= CURRENT_DATE + (mnd.days * INTERVAL '1 day')
 ORDER BY m.created_at DESC;
+
+-- name: UpdateMemberDietChart :one
+UPDATE members
+SET diet_chart_json = @diet_chart_json,
+    updated_at = NOW()
+WHERE id = @id
+RETURNING *;
+
+-- name: UpdateMemberPendingDietChart :one
+UPDATE members
+SET pending_diet_chart_json = @pending_diet_chart_json,
+    updated_at = NOW()
+WHERE id = @id
+RETURNING *;
+
+-- name: ApprovePendingDietChart :one
+UPDATE members
+SET diet_chart_json = pending_diet_chart_json,
+    pending_diet_chart_json = NULL,
+    updated_at = NOW()
+WHERE id = @id
+RETURNING *;
+
+-- name: DeclinePendingDietChart :one
+UPDATE members
+SET pending_diet_chart_json = NULL,
+    updated_at = NOW()
+WHERE id = @id
+RETURNING *;
+
+

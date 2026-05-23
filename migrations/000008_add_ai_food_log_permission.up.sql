@@ -1,0 +1,1 @@
+ALTER TABLE members ADD COLUMN is_ai_food_log_allowed BOOLEAN NOT NULL DEFAULT TRUE;

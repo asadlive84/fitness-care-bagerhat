@@ -42,7 +42,7 @@ class MessageRepository {
       '/api/v1/admin/messages/broadcast',
       data: {
         'content': content,
-        'filter': filter,
+        'broadcast_filter': filter,
       },
     );
   }

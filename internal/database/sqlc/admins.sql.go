@@ -13,17 +13,20 @@ import (
 )
 
 const createAdmin = `-- name: CreateAdmin :one
-INSERT INTO admins (id, name, phone, email, password_hash)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, name, phone, email, password_hash, created_at, updated_at
+INSERT INTO admins (id, name, phone, email, password_hash, role, parent_admin_id, created_by_superadmin_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, name, phone, email, password_hash, created_at, updated_at, role, parent_admin_id, created_by_superadmin_id
 `
 
 type CreateAdminParams struct {
-	ID           uuid.UUID      `json:"id"`
-	Name         string         `json:"name"`
-	Phone        sql.NullString `json:"phone"`
-	Email        string         `json:"email"`
-	PasswordHash string         `json:"password_hash"`
+	ID                    uuid.UUID      `json:"id"`
+	Name                  string         `json:"name"`
+	Phone                 sql.NullString `json:"phone"`
+	Email                 string         `json:"email"`
+	PasswordHash          string         `json:"password_hash"`
+	Role                  string         `json:"role"`
+	ParentAdminID         uuid.NullUUID  `json:"parent_admin_id"`
+	CreatedBySuperadminID uuid.NullUUID  `json:"created_by_superadmin_id"`
 }
 
 func (q *Queries) CreateAdmin(ctx context.Context, arg CreateAdminParams) (Admin, error) {
@@ -33,6 +36,9 @@ func (q *Queries) CreateAdmin(ctx context.Context, arg CreateAdminParams) (Admin
 		arg.Phone,
 		arg.Email,
 		arg.PasswordHash,
+		arg.Role,
+		arg.ParentAdminID,
+		arg.CreatedBySuperadminID,
 	)
 	var i Admin
 	err := row.Scan(
@@ -43,12 +49,15 @@ func (q *Queries) CreateAdmin(ctx context.Context, arg CreateAdminParams) (Admin
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Role,
+		&i.ParentAdminID,
+		&i.CreatedBySuperadminID,
 	)
 	return i, err
 }
 
 const getAdminByEmail = `-- name: GetAdminByEmail :one
-SELECT id, name, phone, email, password_hash, created_at, updated_at FROM admins WHERE email = $1 LIMIT 1
+SELECT id, name, phone, email, password_hash, created_at, updated_at, role, parent_admin_id, created_by_superadmin_id FROM admins WHERE email = $1 LIMIT 1
 `
 
 func (q *Queries) GetAdminByEmail(ctx context.Context, email string) (Admin, error) {
@@ -62,12 +71,15 @@ func (q *Queries) GetAdminByEmail(ctx context.Context, email string) (Admin, err
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Role,
+		&i.ParentAdminID,
+		&i.CreatedBySuperadminID,
 	)
 	return i, err
 }
 
 const getAdminByID = `-- name: GetAdminByID :one
-SELECT id, name, phone, email, password_hash, created_at, updated_at FROM admins WHERE id = $1 LIMIT 1
+SELECT id, name, phone, email, password_hash, created_at, updated_at, role, parent_admin_id, created_by_superadmin_id FROM admins WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetAdminByID(ctx context.Context, id uuid.UUID) (Admin, error) {
@@ -81,12 +93,15 @@ func (q *Queries) GetAdminByID(ctx context.Context, id uuid.UUID) (Admin, error)
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Role,
+		&i.ParentAdminID,
+		&i.CreatedBySuperadminID,
 	)
 	return i, err
 }
 
 const getAdminByPhone = `-- name: GetAdminByPhone :one
-SELECT id, name, phone, email, password_hash, created_at, updated_at FROM admins WHERE phone = $1 LIMIT 1
+SELECT id, name, phone, email, password_hash, created_at, updated_at, role, parent_admin_id, created_by_superadmin_id FROM admins WHERE phone = $1 LIMIT 1
 `
 
 func (q *Queries) GetAdminByPhone(ctx context.Context, phone sql.NullString) (Admin, error) {
@@ -100,6 +115,9 @@ func (q *Queries) GetAdminByPhone(ctx context.Context, phone sql.NullString) (Ad
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Role,
+		&i.ParentAdminID,
+		&i.CreatedBySuperadminID,
 	)
 	return i, err
 }

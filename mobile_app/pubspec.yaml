@@ -68,6 +68,10 @@ dependencies:
   rxdart: ^0.28.0
 
   cupertino_icons: ^1.0.8
+  pdf: ^3.12.0
+  printing: ^5.14.3
+  image_picker: ^1.2.2
+  flutter_image_compress: ^2.4.0
 
 dev_dependencies:
   flutter_test:

@@ -7,9 +7,11 @@ import 'package:fitness_care_bagerhat/core/widgets/gym_error_state.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_shimmer.dart';
 import 'package:fitness_care_bagerhat/app/router/routes.dart';
 import 'package:fitness_care_bagerhat/features/admin/members/member.dart';
+import 'package:fitness_care_bagerhat/features/member/home/dashboard_banners_provider.dart';
 import 'package:fitness_care_bagerhat/features/member/home/member_home_controller.dart';
 import 'package:fitness_care_bagerhat/features/member/home/member_home_state.dart';
 import 'package:fitness_care_bagerhat/features/member/home/widgets/member_home_widgets.dart';
+import 'package:fitness_care_bagerhat/features/member/messages/chat_message.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -41,21 +43,29 @@ class MemberHomeScreen extends ConsumerWidget {
   }
 }
 
-class _Content extends StatelessWidget {
+class _Content extends ConsumerWidget {
   const _Content({required this.data});
   final MemberHomeState data;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final banners = ref.watch(dashboardBannersProvider);
+
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: AppSpacing.paddingAll20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (banners.isNotEmpty) ...[
+            _MessageBanners(banners: banners, ref: ref),
+            const SizedBox(height: AppSpacing.s16),
+          ],
           _Greeting(member: data.member),
           const SizedBox(height: AppSpacing.s24),
           _SubscriptionHero(subscription: data.activeSubscription),
+          const SizedBox(height: AppSpacing.s24),
+          _DietPlanCard(member: data.member),
           const SizedBox(height: AppSpacing.s24),
           
           Text('Health Insights', style: AppText.titleMedium),
@@ -74,13 +84,6 @@ class _Content extends StatelessWidget {
           const SizedBox(height: AppSpacing.s16),
           Row(
             children: [
-              MemberStatMini(
-                label: 'Weight',
-                value: (data.member.currentWeight ?? 0).toString(),
-                unit: 'kg',
-                color: AppColors.primary,
-              ),
-              const SizedBox(width: AppSpacing.s12),
               MemberStatMini(
                 label: 'Height',
                 value: data.member.heightDisplay,
@@ -192,9 +195,15 @@ class _SubscriptionHero extends StatelessWidget {
 
     final planLabel = sub.planName.isNotEmpty ? sub.planName : (sub.note ?? 'Membership Plan');
     final durationDays = sub.endDate.difference(sub.startDate).inDays;
+    final remainingDays = sub.endDate.difference(DateTime.now()).inDays;
+    
     final durationText = durationDays >= 28
         ? '${(durationDays / 30).round()} Month${(durationDays / 30).round() > 1 ? 's' : ''}'
         : '$durationDays Days';
+        
+    final remainingText = remainingDays > 0 
+        ? '$remainingDays days left' 
+        : (remainingDays == 0 ? 'Expires today' : 'Expired');
 
     final fmt = DateFormat('dd MMM yyyy');
 
@@ -236,8 +245,11 @@ class _SubscriptionHero extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '$durationText · Exp ${sub.endDate.toDisplay()}',
-                        style: AppText.labelSmall.copyWith(color: AppColors.textSecondary),
+                        '$durationText · $remainingText',
+                        style: AppText.labelSmall.copyWith(
+                          color: remainingDays > 5 ? AppColors.textSecondary : AppColors.error,
+                          fontWeight: remainingDays > 5 ? FontWeight.normal : FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -430,6 +442,148 @@ class _MinimalStat extends StatelessWidget {
   }
 }
 
+// ── Dashboard message banners ─────────────────────────────────────────────────
+
+class _MessageBanners extends StatelessWidget {
+  const _MessageBanners({required this.banners, required this.ref});
+  final List<ChatMessage> banners;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: banners
+          .map((msg) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.s8),
+                child: _BannerRow(message: msg, ref: ref),
+              ))
+          .toList(),
+    );
+  }
+}
+
+class _BannerRow extends StatelessWidget {
+  const _BannerRow({required this.message, required this.ref});
+  final ChatMessage message;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    final isBroadcast = message.isBroadcast;
+    final bgColor = isBroadcast
+        ? AppColors.accent.withValues(alpha: 0.12)
+        : AppColors.primary.withValues(alpha: 0.10);
+    final borderColor = isBroadcast
+        ? AppColors.accent.withValues(alpha: 0.4)
+        : AppColors.primary.withValues(alpha: 0.35);
+    final iconColor = isBroadcast ? AppColors.accent : AppColors.primary;
+
+    return GestureDetector(
+      onTap: isBroadcast ? null : () => context.push(Routes.memberMessages),
+      child: Container(
+        height: 44,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: AppSpacing.r12,
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: AppSpacing.s8),
+            Icon(
+              isBroadcast ? PhosphorIcons.megaphone() : PhosphorIcons.chatText(),
+              size: 16,
+              color: iconColor,
+            ),
+            const SizedBox(width: AppSpacing.s8),
+            Expanded(
+              child: ClipRect(
+                child: _MarqueeText(
+                  text: message.content,
+                  style: AppText.bodySmall.copyWith(color: iconColor),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.s4),
+            GestureDetector(
+              onTap: () => ref
+                  .read(dashboardBannersProvider.notifier)
+                  .dismiss(message.id),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s8),
+                child: Icon(Icons.close, size: 16, color: iconColor),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MarqueeText extends StatefulWidget {
+  const _MarqueeText({required this.text, required this.style});
+  final String text;
+  final TextStyle style;
+
+  @override
+  State<_MarqueeText> createState() => _MarqueeTextState();
+}
+
+class _MarqueeTextState extends State<_MarqueeText>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    // 60px/s scroll speed; longer text takes more time
+    final duration = Duration(seconds: (widget.text.length * 0.12).round().clamp(4, 30));
+    _controller = AnimationController(vsync: this, duration: duration)
+      ..repeat();
+    _animation = Tween<double>(begin: 0, end: 1).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final containerWidth = constraints.maxWidth;
+        // Estimate text width: ~7px per character at bodySmall
+        final textWidth = (widget.text.length * 7.5).clamp(containerWidth, double.infinity);
+        final totalTravel = containerWidth + textWidth;
+
+        return AnimatedBuilder(
+          animation: _animation,
+          builder: (context, child) {
+            final offset = _animation.value * totalTravel;
+            return Transform.translate(
+              offset: Offset(containerWidth - offset, 0),
+              child: child,
+            );
+          },
+          child: Text(
+            widget.text,
+            style: widget.style,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.visible,
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _LoadingState extends StatelessWidget {
   const _LoadingState();
 
@@ -453,6 +607,204 @@ class _LoadingState extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DietPlanCard extends StatelessWidget {
+  const _DietPlanCard({required this.member});
+  final Member member;
+
+  Map<String, dynamic>? _getNextMeal(Map<String, dynamic> dietChart) {
+    final rawMeals = dietChart['meals'] as List<dynamic>? ?? [];
+    if (rawMeals.isEmpty) return null;
+
+    final meals = rawMeals.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final now = DateTime.now();
+
+    List<(Map<String, dynamic>, DateTime)> mealTimePairs = [];
+
+    for (final meal in meals) {
+      final String? timeStr = meal['time'] as String?;
+      if (timeStr == null || timeStr.trim().isEmpty) continue;
+      try {
+        final cleanTime = timeStr.trim();
+        final parts = cleanTime.split(RegExp(r'\s+'));
+        if (parts.length != 2) continue;
+        final timeParts = parts[0].split(':');
+        if (timeParts.length != 2) continue;
+
+        int hour = int.parse(timeParts[0]);
+        final int minute = int.parse(timeParts[1]);
+        final String ampm = parts[1].toUpperCase();
+
+        if (ampm == 'PM' && hour < 12) {
+          hour += 12;
+        } else if (ampm == 'AM' && hour == 12) {
+          hour = 0;
+        }
+
+        DateTime mealToday = DateTime(now.year, now.month, now.day, hour, minute);
+        if (mealToday.isBefore(now)) {
+          mealToday = mealToday.add(const Duration(days: 1));
+        }
+        mealTimePairs.add((meal, mealToday));
+      } catch (_) {
+        // safe fallback
+      }
+    }
+
+    if (mealTimePairs.isEmpty) {
+      return meals.first;
+    }
+
+    mealTimePairs.sort((a, b) => a.$2.compareTo(b.$2));
+    return mealTimePairs.first.$1;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chart = member.dietChart;
+    final isChartActive = chart != null && chart.isNotEmpty;
+
+    if (!isChartActive) {
+      return Container(
+        width: double.infinity,
+        padding: AppSpacing.paddingAll24,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: AppSpacing.r24,
+          border: Border.all(
+            color: AppColors.divider,
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.textSecondary.withOpacity(0.05),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                PhosphorIcons.cookingPot(),
+                color: AppColors.textSecondary,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.s16),
+            Text(
+              'No Active Diet Plan',
+              style: AppText.titleMedium.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: AppSpacing.s8),
+            Text(
+              'Your diet chart is not active yet. Please contact your gym trainer to set up your personalized nutrition plan!',
+              textAlign: TextAlign.center,
+              style: AppText.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final dailyCalories = chart['daily_calories'] ?? 2000;
+    final macros = chart['macros'] as Map<String, dynamic>? ?? {};
+    final protein = macros['protein'] ?? 150;
+    final carbs = macros['carbs'] ?? 200;
+    final fats = macros['fats'] ?? 65;
+
+    final nextMeal = _getNextMeal(chart);
+    final String nextMealText = nextMeal != null
+        ? 'Next meal at ${nextMeal['time'] ?? '08:30 AM'} — ${nextMeal['name'] ?? 'Meal'}'
+        : 'View your nutrition timeline';
+
+    return GestureDetector(
+      onTap: () => context.push(Routes.memberDietChart, extra: member),
+      child: Container(
+        width: double.infinity,
+        padding: AppSpacing.paddingAll24,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: AppSpacing.r24,
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        PhosphorIcons.cookingPot(),
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.s8),
+                    Text(
+                      'Active Nutrition Plan',
+                      style: AppText.titleMedium.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                Icon(
+                  PhosphorIcons.caretRight(),
+                  color: AppColors.textSecondary,
+                  size: 20,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.s16),
+            Text(
+              nextMealText,
+              style: AppText.titleSmall.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.s12),
+            Text(
+              'Daily Budget: $dailyCalories kcal  ·  P: ${protein}g  C: ${carbs}g  F: ${fats}g',
+              style: AppText.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

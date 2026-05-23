@@ -12,7 +12,54 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/sqlc-dev/pqtype"
 )
+
+const approvePendingDietChart = `-- name: ApprovePendingDietChart :one
+UPDATE members
+SET diet_chart_json = pending_diet_chart_json,
+    pending_diet_chart_json = NULL,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone, gender, budget_level, is_ai_allowed, profile_picture_url, diet_chart_json, is_ai_food_log_allowed, pending_diet_chart_json, created_by_admin_id
+`
+
+func (q *Queries) ApprovePendingDietChart(ctx context.Context, id uuid.UUID) (Member, error) {
+	row := q.db.QueryRowContext(ctx, approvePendingDietChart, id)
+	var i Member
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.Goal,
+		&i.JoinDate,
+		&i.CurrentWeight,
+		&i.Status,
+		&i.MustChangePassword,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.HeightCm,
+		&i.DateOfBirth,
+		&i.Religion,
+		&i.BloodGroup,
+		pq.Array(&i.Hobbies),
+		&i.PresentAddress,
+		&i.PermanentAddress,
+		&i.Occupation,
+		&i.Nid,
+		&i.EmergencyPhone,
+		&i.Gender,
+		&i.BudgetLevel,
+		&i.IsAiAllowed,
+		&i.ProfilePictureUrl,
+		&i.DietChartJson,
+		&i.IsAiFoodLogAllowed,
+		&i.PendingDietChartJson,
+		&i.CreatedByAdminID,
+	)
+	return i, err
+}
 
 const countMembers = `-- name: CountMembers :one
 SELECT COUNT(*) FROM members
@@ -38,9 +85,9 @@ func (q *Queries) CountMembers(ctx context.Context, arg CountMembersParams) (int
 }
 
 const createMember = `-- name: CreateMember :one
-INSERT INTO members (id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone
+INSERT INTO members (id, name, phone, password_hash, gender, goal, join_date, current_weight, status, must_change_password, created_by_admin_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone, gender, budget_level, is_ai_allowed, profile_picture_url, diet_chart_json, is_ai_food_log_allowed, pending_diet_chart_json, created_by_admin_id
 `
 
 type CreateMemberParams struct {
@@ -48,11 +95,13 @@ type CreateMemberParams struct {
 	Name               string          `json:"name"`
 	Phone              string          `json:"phone"`
 	PasswordHash       string          `json:"password_hash"`
+	Gender             string          `json:"gender"`
 	Goal               sql.NullString  `json:"goal"`
 	JoinDate           time.Time       `json:"join_date"`
 	CurrentWeight      sql.NullFloat64 `json:"current_weight"`
 	Status             string          `json:"status"`
 	MustChangePassword bool            `json:"must_change_password"`
+	CreatedByAdminID   uuid.NullUUID   `json:"created_by_admin_id"`
 }
 
 func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error) {
@@ -61,11 +110,13 @@ func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) (Mem
 		arg.Name,
 		arg.Phone,
 		arg.PasswordHash,
+		arg.Gender,
 		arg.Goal,
 		arg.JoinDate,
 		arg.CurrentWeight,
 		arg.Status,
 		arg.MustChangePassword,
+		arg.CreatedByAdminID,
 	)
 	var i Member
 	err := row.Scan(
@@ -90,12 +141,65 @@ func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) (Mem
 		&i.Occupation,
 		&i.Nid,
 		&i.EmergencyPhone,
+		&i.Gender,
+		&i.BudgetLevel,
+		&i.IsAiAllowed,
+		&i.ProfilePictureUrl,
+		&i.DietChartJson,
+		&i.IsAiFoodLogAllowed,
+		&i.PendingDietChartJson,
+		&i.CreatedByAdminID,
+	)
+	return i, err
+}
+
+const declinePendingDietChart = `-- name: DeclinePendingDietChart :one
+UPDATE members
+SET pending_diet_chart_json = NULL,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone, gender, budget_level, is_ai_allowed, profile_picture_url, diet_chart_json, is_ai_food_log_allowed, pending_diet_chart_json, created_by_admin_id
+`
+
+func (q *Queries) DeclinePendingDietChart(ctx context.Context, id uuid.UUID) (Member, error) {
+	row := q.db.QueryRowContext(ctx, declinePendingDietChart, id)
+	var i Member
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.Goal,
+		&i.JoinDate,
+		&i.CurrentWeight,
+		&i.Status,
+		&i.MustChangePassword,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.HeightCm,
+		&i.DateOfBirth,
+		&i.Religion,
+		&i.BloodGroup,
+		pq.Array(&i.Hobbies),
+		&i.PresentAddress,
+		&i.PermanentAddress,
+		&i.Occupation,
+		&i.Nid,
+		&i.EmergencyPhone,
+		&i.Gender,
+		&i.BudgetLevel,
+		&i.IsAiAllowed,
+		&i.ProfilePictureUrl,
+		&i.DietChartJson,
+		&i.IsAiFoodLogAllowed,
+		&i.PendingDietChartJson,
+		&i.CreatedByAdminID,
 	)
 	return i, err
 }
 
 const getMemberByID = `-- name: GetMemberByID :one
-SELECT id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone FROM members WHERE id = $1 LIMIT 1
+SELECT id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone, gender, budget_level, is_ai_allowed, profile_picture_url, diet_chart_json, is_ai_food_log_allowed, pending_diet_chart_json, created_by_admin_id FROM members WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetMemberByID(ctx context.Context, id uuid.UUID) (Member, error) {
@@ -123,12 +227,20 @@ func (q *Queries) GetMemberByID(ctx context.Context, id uuid.UUID) (Member, erro
 		&i.Occupation,
 		&i.Nid,
 		&i.EmergencyPhone,
+		&i.Gender,
+		&i.BudgetLevel,
+		&i.IsAiAllowed,
+		&i.ProfilePictureUrl,
+		&i.DietChartJson,
+		&i.IsAiFoodLogAllowed,
+		&i.PendingDietChartJson,
+		&i.CreatedByAdminID,
 	)
 	return i, err
 }
 
 const getMemberByPhone = `-- name: GetMemberByPhone :one
-SELECT id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone FROM members WHERE phone = $1 LIMIT 1
+SELECT id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone, gender, budget_level, is_ai_allowed, profile_picture_url, diet_chart_json, is_ai_food_log_allowed, pending_diet_chart_json, created_by_admin_id FROM members WHERE phone = $1 LIMIT 1
 `
 
 func (q *Queries) GetMemberByPhone(ctx context.Context, phone string) (Member, error) {
@@ -156,12 +268,20 @@ func (q *Queries) GetMemberByPhone(ctx context.Context, phone string) (Member, e
 		&i.Occupation,
 		&i.Nid,
 		&i.EmergencyPhone,
+		&i.Gender,
+		&i.BudgetLevel,
+		&i.IsAiAllowed,
+		&i.ProfilePictureUrl,
+		&i.DietChartJson,
+		&i.IsAiFoodLogAllowed,
+		&i.PendingDietChartJson,
+		&i.CreatedByAdminID,
 	)
 	return i, err
 }
 
 const listMembers = `-- name: ListMembers :many
-SELECT id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone FROM members
+SELECT id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone, gender, budget_level, is_ai_allowed, profile_picture_url, diet_chart_json, is_ai_food_log_allowed, pending_diet_chart_json, created_by_admin_id FROM members
 WHERE
     ($1::text IS NULL OR status = $1::text)
     AND (
@@ -217,6 +337,14 @@ func (q *Queries) ListMembers(ctx context.Context, arg ListMembersParams) ([]Mem
 			&i.Occupation,
 			&i.Nid,
 			&i.EmergencyPhone,
+			&i.Gender,
+			&i.BudgetLevel,
+			&i.IsAiAllowed,
+			&i.ProfilePictureUrl,
+			&i.DietChartJson,
+			&i.IsAiFoodLogAllowed,
+			&i.PendingDietChartJson,
+			&i.CreatedByAdminID,
 		); err != nil {
 			return nil, err
 		}
@@ -232,19 +360,35 @@ func (q *Queries) ListMembers(ctx context.Context, arg ListMembersParams) ([]Mem
 }
 
 const listMembersWithExpiringSoon = `-- name: ListMembersWithExpiringSoon :many
-SELECT DISTINCT m.id, m.name, m.phone, m.password_hash, m.goal, m.join_date, m.current_weight, m.status, m.must_change_password, m.created_at, m.updated_at, m.height_cm, m.date_of_birth, m.religion, m.blood_group, m.hobbies, m.present_address, m.permanent_address, m.occupation, m.nid, m.emergency_phone
+WITH member_nudge_days AS (
+    SELECT m.id AS member_id,
+           COALESCE(
+               (
+                   SELECT (s.value->>0)::int
+                   FROM settings s
+                   WHERE s.key = 'nudge_days'
+                     AND (s.admin_id = m.created_by_admin_id OR s.admin_id IS NULL)
+                   ORDER BY s.admin_id DESC NULLS LAST
+                   LIMIT 1
+               ),
+               7
+           ) AS days
+    FROM members m
+)
+SELECT DISTINCT m.id, m.name, m.phone, m.password_hash, m.goal, m.join_date, m.current_weight, m.status, m.must_change_password, m.created_at, m.updated_at, m.height_cm, m.date_of_birth, m.religion, m.blood_group, m.hobbies, m.present_address, m.permanent_address, m.occupation, m.nid, m.emergency_phone, m.gender, m.budget_level, m.is_ai_allowed, m.profile_picture_url, m.diet_chart_json, m.is_ai_food_log_allowed, m.pending_diet_chart_json, m.created_by_admin_id
 FROM members m
 JOIN subscriptions s ON s.member_id = m.id
+JOIN member_nudge_days mnd ON mnd.member_id = m.id
 WHERE m.status     = 'active'
   AND s.status     = 'active'
   AND s.end_date   >= CURRENT_DATE
-  AND s.end_date   <= CURRENT_DATE + ($1::int * INTERVAL '1 day')
+  AND s.end_date   <= CURRENT_DATE + (mnd.days * INTERVAL '1 day')
 ORDER BY m.created_at DESC
 `
 
-// Returns active members whose active subscription ends within @days days.
-func (q *Queries) ListMembersWithExpiringSoon(ctx context.Context, days int32) ([]Member, error) {
-	rows, err := q.db.QueryContext(ctx, listMembersWithExpiringSoon, days)
+// Returns active members whose active subscription ends within their gym's nudge days.
+func (q *Queries) ListMembersWithExpiringSoon(ctx context.Context) ([]Member, error) {
+	rows, err := q.db.QueryContext(ctx, listMembersWithExpiringSoon)
 	if err != nil {
 		return nil, err
 	}
@@ -274,6 +418,14 @@ func (q *Queries) ListMembersWithExpiringSoon(ctx context.Context, days int32) (
 			&i.Occupation,
 			&i.Nid,
 			&i.EmergencyPhone,
+			&i.Gender,
+			&i.BudgetLevel,
+			&i.IsAiAllowed,
+			&i.ProfilePictureUrl,
+			&i.DietChartJson,
+			&i.IsAiFoodLogAllowed,
+			&i.PendingDietChartJson,
+			&i.CreatedByAdminID,
 		); err != nil {
 			return nil, err
 		}
@@ -292,16 +444,18 @@ const updateMember = `-- name: UpdateMember :one
 UPDATE members
 SET name           = $1,
     phone          = $2,
-    goal           = $3,
-    current_weight = $4,
+    gender         = $3,
+    goal           = $4,
+    current_weight = $5,
     updated_at     = NOW()
-WHERE id = $5
-RETURNING id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone
+WHERE id = $6
+RETURNING id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone, gender, budget_level, is_ai_allowed, profile_picture_url, diet_chart_json, is_ai_food_log_allowed, pending_diet_chart_json, created_by_admin_id
 `
 
 type UpdateMemberParams struct {
 	Name          string          `json:"name"`
 	Phone         string          `json:"phone"`
+	Gender        string          `json:"gender"`
 	Goal          sql.NullString  `json:"goal"`
 	CurrentWeight sql.NullFloat64 `json:"current_weight"`
 	ID            uuid.UUID       `json:"id"`
@@ -311,6 +465,7 @@ func (q *Queries) UpdateMember(ctx context.Context, arg UpdateMemberParams) (Mem
 	row := q.db.QueryRowContext(ctx, updateMember,
 		arg.Name,
 		arg.Phone,
+		arg.Gender,
 		arg.Goal,
 		arg.CurrentWeight,
 		arg.ID,
@@ -338,6 +493,64 @@ func (q *Queries) UpdateMember(ctx context.Context, arg UpdateMemberParams) (Mem
 		&i.Occupation,
 		&i.Nid,
 		&i.EmergencyPhone,
+		&i.Gender,
+		&i.BudgetLevel,
+		&i.IsAiAllowed,
+		&i.ProfilePictureUrl,
+		&i.DietChartJson,
+		&i.IsAiFoodLogAllowed,
+		&i.PendingDietChartJson,
+		&i.CreatedByAdminID,
+	)
+	return i, err
+}
+
+const updateMemberDietChart = `-- name: UpdateMemberDietChart :one
+UPDATE members
+SET diet_chart_json = $1,
+    updated_at = NOW()
+WHERE id = $2
+RETURNING id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone, gender, budget_level, is_ai_allowed, profile_picture_url, diet_chart_json, is_ai_food_log_allowed, pending_diet_chart_json, created_by_admin_id
+`
+
+type UpdateMemberDietChartParams struct {
+	DietChartJson pqtype.NullRawMessage `json:"diet_chart_json"`
+	ID            uuid.UUID             `json:"id"`
+}
+
+func (q *Queries) UpdateMemberDietChart(ctx context.Context, arg UpdateMemberDietChartParams) (Member, error) {
+	row := q.db.QueryRowContext(ctx, updateMemberDietChart, arg.DietChartJson, arg.ID)
+	var i Member
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.Goal,
+		&i.JoinDate,
+		&i.CurrentWeight,
+		&i.Status,
+		&i.MustChangePassword,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.HeightCm,
+		&i.DateOfBirth,
+		&i.Religion,
+		&i.BloodGroup,
+		pq.Array(&i.Hobbies),
+		&i.PresentAddress,
+		&i.PermanentAddress,
+		&i.Occupation,
+		&i.Nid,
+		&i.EmergencyPhone,
+		&i.Gender,
+		&i.BudgetLevel,
+		&i.IsAiAllowed,
+		&i.ProfilePictureUrl,
+		&i.DietChartJson,
+		&i.IsAiFoodLogAllowed,
+		&i.PendingDietChartJson,
+		&i.CreatedByAdminID,
 	)
 	return i, err
 }
@@ -358,6 +571,56 @@ type UpdateMemberPasswordParams struct {
 func (q *Queries) UpdateMemberPassword(ctx context.Context, arg UpdateMemberPasswordParams) error {
 	_, err := q.db.ExecContext(ctx, updateMemberPassword, arg.PasswordHash, arg.ID)
 	return err
+}
+
+const updateMemberPendingDietChart = `-- name: UpdateMemberPendingDietChart :one
+UPDATE members
+SET pending_diet_chart_json = $1,
+    updated_at = NOW()
+WHERE id = $2
+RETURNING id, name, phone, password_hash, goal, join_date, current_weight, status, must_change_password, created_at, updated_at, height_cm, date_of_birth, religion, blood_group, hobbies, present_address, permanent_address, occupation, nid, emergency_phone, gender, budget_level, is_ai_allowed, profile_picture_url, diet_chart_json, is_ai_food_log_allowed, pending_diet_chart_json, created_by_admin_id
+`
+
+type UpdateMemberPendingDietChartParams struct {
+	PendingDietChartJson pqtype.NullRawMessage `json:"pending_diet_chart_json"`
+	ID                   uuid.UUID             `json:"id"`
+}
+
+func (q *Queries) UpdateMemberPendingDietChart(ctx context.Context, arg UpdateMemberPendingDietChartParams) (Member, error) {
+	row := q.db.QueryRowContext(ctx, updateMemberPendingDietChart, arg.PendingDietChartJson, arg.ID)
+	var i Member
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.Goal,
+		&i.JoinDate,
+		&i.CurrentWeight,
+		&i.Status,
+		&i.MustChangePassword,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.HeightCm,
+		&i.DateOfBirth,
+		&i.Religion,
+		&i.BloodGroup,
+		pq.Array(&i.Hobbies),
+		&i.PresentAddress,
+		&i.PermanentAddress,
+		&i.Occupation,
+		&i.Nid,
+		&i.EmergencyPhone,
+		&i.Gender,
+		&i.BudgetLevel,
+		&i.IsAiAllowed,
+		&i.ProfilePictureUrl,
+		&i.DietChartJson,
+		&i.IsAiFoodLogAllowed,
+		&i.PendingDietChartJson,
+		&i.CreatedByAdminID,
+	)
+	return i, err
 }
 
 const updateMemberStatus = `-- name: UpdateMemberStatus :exec

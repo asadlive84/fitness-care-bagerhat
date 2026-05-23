@@ -1,3 +1,4 @@
+import 'package:fitness_care_bagerhat/app/router/routes.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_colors.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_spacing.dart';
 import 'package:fitness_care_bagerhat/app/theme/app_text.dart';
@@ -6,6 +7,7 @@ import 'package:fitness_care_bagerhat/features/admin/dashboard/dashboard_stats.d
 import 'package:fitness_care_bagerhat/features/admin/members/member.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class WeightMiniChart extends StatelessWidget {
@@ -14,27 +16,55 @@ class WeightMiniChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (data.isEmpty) return const SizedBox();
+
+    double minVal = data.first.value;
+    double maxVal = data.first.value;
+    for (final p in data) {
+      if (p.value < minVal) minVal = p.value;
+      if (p.value > maxVal) maxVal = p.value;
+    }
+    
+    final minY = (minVal - 5).floorToDouble();
+    final maxY = (maxVal + 5).ceilToDouble();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Weight This Week', style: AppText.labelSmall),
+        Text('Weight Trend', style: AppText.labelSmall),
         const SizedBox(height: AppSpacing.s12),
         SizedBox(
           height: 60,
           child: LineChart(
             LineChartData(
+              minY: minY,
+              maxY: maxY,
               gridData: const FlGridData(show: false),
               titlesData: const FlTitlesData(show: false),
               borderData: FlBorderData(show: false),
+              lineTouchData: const LineTouchData(enabled: false),
               lineBarsData: [
                 LineChartBarData(
                   spots: data.asMap().entries.map((e) {
                     return FlSpot(e.key.toDouble(), e.value.value);
                   }).toList(),
                   isCurved: true,
+                  curveSmoothness: 0.35,
                   color: AppColors.primary,
-                  barWidth: 2,
+                  barWidth: 3,
+                  isStrokeCapRound: true,
                   dotData: const FlDotData(show: false),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.primary.withValues(alpha: 0.3),
+                        AppColors.primary.withValues(alpha: 0.0),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -189,6 +219,7 @@ class WeightJourneyTracker extends StatelessWidget {
     final isLoss = diff < 0;
 
     return GymCard(
+      onTap: () => context.push(Routes.memberWeightLog),
       padding: AppSpacing.paddingAll20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -184,8 +184,8 @@ func (r *SubscriptionRepo) ReplaceActive(ctx context.Context, memberID uuid.UUID
 	return r.q.ReplaceActiveSubscriptions(ctx, memberID)
 }
 
-func (r *SubscriptionRepo) ListExpiring(ctx context.Context, days int) ([]*models.ExpiringSubscription, error) {
-	rows, err := r.q.ListExpiringSubscriptions(ctx, int32(days))
+func (r *SubscriptionRepo) ListExpiring(ctx context.Context, _ int) ([]*models.ExpiringSubscription, error) {
+	rows, err := r.q.ListExpiringSubscriptions(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list expiring subscriptions: %w", err)
 	}
@@ -204,6 +204,9 @@ func (r *SubscriptionRepo) ListExpiring(ctx context.Context, days int) ([]*model
 				BillingType:    "prepaid", // SQLC row doesn't have billing_type; default is safe here
 			},
 			MemberName: row.MemberName,
+		}
+		if row.CreatedByAdminID.Valid {
+			result[i].CreatedByAdminID = &row.CreatedByAdminID.UUID
 		}
 		if row.Note.Valid {
 			s := row.Note.String

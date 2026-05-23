@@ -105,19 +105,34 @@ class MessagesScreen extends ConsumerWidget {
         itemBuilder: (context, index) {
           final conv = state.conversations[index];
           final isUnread = conv.senderRole == 'member';
+          final displayName = (conv.memberName != null && conv.memberName!.isNotEmpty)
+              ? conv.memberName!
+              : 'Member …${conv.memberId.substring(conv.memberId.length - 6)}';
           return ListTile(
             contentPadding: EdgeInsets.zero,
-            onTap: () => context.push(Routes.adminChat(conv.memberId)),
-            leading: CircleAvatar(
-              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-              child: Icon(PhosphorIcons.user(), color: AppColors.primary, size: 20),
+            onTap: () => context.push(
+              Routes.adminChat(conv.memberId),
+              extra: conv.memberName,
+            ),
+            leading: GestureDetector(
+              onTap: () => context.push(Routes.adminMemberDetail(conv.memberId)),
+              child: CircleAvatar(
+                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                child: Icon(PhosphorIcons.user(), color: AppColors.primary, size: 20),
+              ),
             ),
             title: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    'Member …${conv.memberId.substring(conv.memberId.length - 6)}',
-                    style: AppText.titleSmall,
+                  child: GestureDetector(
+                    onTap: () => context.push(Routes.adminMemberDetail(conv.memberId)),
+                    child: Text(
+                      displayName,
+                      style: AppText.titleSmall.copyWith(
+                        decoration: TextDecoration.underline,
+                        decorationColor: AppColors.primary,
+                      ),
+                    ),
                   ),
                 ),
                 if (isUnread)

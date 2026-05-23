@@ -35,6 +35,7 @@ import (
 	"github.com/asadlive84/fitness-care-bagerhat/internal/server"
 	"github.com/asadlive84/fitness-care-bagerhat/internal/services"
 	"github.com/gofiber/fiber/v2"
+	fibercors    "github.com/gofiber/fiber/v2/middleware/cors"
 	fiberlimiter "github.com/gofiber/fiber/v2/middleware/limiter"
 	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
 	fiberSwagger "github.com/gofiber/swagger"
@@ -45,6 +46,12 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("load config", "error", err)
+		os.Exit(1)
+	}
+
+	// ── File Uploads ──────────────────────────────────────────────────────────
+	if err := os.MkdirAll(cfg.Upload.Dir, 0755); err != nil {
+		slog.Error("create upload directory", "error", err, "dir", cfg.Upload.Dir)
 		os.Exit(1)
 	}
 
@@ -87,6 +94,8 @@ func main() {
 	weightLogRepo   := postgres.NewWeightLogRepo(db)
 	workoutLogRepo  := postgres.NewWorkoutLogRepo(db)
 	dietLogRepo     := postgres.NewDietLogRepo(db)
+	expensePgRepo   := postgres.NewExpenseRepo(db)
+	financialPgRepo := postgres.NewFinancialRepo(db)
 
 	memberRepo := cached.NewMemberRepo(memberPgRepo, redisClient, log)
 	planRepo := cached.NewPlanRepo(planPgRepo, redisClient, log)
@@ -103,30 +112,45 @@ func main() {
 
 	// ── Services ──────────────────────────────────────────────────────────────
 	authSvc       := services.NewAuthService(memberRepo, adminPgRepo, jwtManager)
-	memberSvc     := services.NewMemberService(memberRepo)
+	memberSvc     := services.NewMemberService(memberRepo, weightLogRepo)
 	planSvc       := services.NewPlanService(planRepo)
-	subSvc        := services.NewSubscriptionService(subRepo, memberRepo, planRepo)
+	settingSvc     := services.NewSettingService(settingRepo)
+	subSvc        := services.NewSubscriptionService(subRepo, memberRepo, planRepo, settingSvc)
 	paymentSvc    := services.NewPaymentService(paymentPgRepo, memberRepo)
-	weightLogSvc  := services.NewWeightLogService(weightLogRepo)
+	weightLogSvc  := services.NewWeightLogService(weightLogRepo, memberRepo)
+	expenseSvc    := services.NewExpenseService(expensePgRepo, cfg.App.Timezone)
+	financialSvc  := services.NewFinancialsService(financialPgRepo, cfg.App.Timezone)
 	workoutLogSvc := services.NewWorkoutLogService(workoutLogRepo)
 	dietLogSvc    := services.NewDietLogService(dietLogRepo)
 	msgRepo        := postgres.NewMessageRepo(db)
-	messageSvc     := services.NewMessageService(msgRepo)
+	messageSvc     := services.NewMessageService(msgRepo, memberRepo)
 	notifRepo      := postgres.NewNotificationRepo(db)
 	fcmTokenRepo   := postgres.NewFCMTokenRepo(db)
-	settingSvc     := services.NewSettingService(settingRepo)
+	aiRepo         := postgres.NewAIRepo(db)
+	aiSvc          := services.NewAIService(aiRepo, cfg.AI, log)
+
+	// Seed default AI prompts for the first time
+	if err := aiSvc.SeedDefaultPrompts(context.Background()); err != nil {
+		log.Error("Failed to seed default AI prompts on startup", "error", err)
+	}
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
 	authHandler          := handlers.NewAuthHandler(authSvc, log)
-	adminMemberHandler   := handlers.NewAdminMemberHandler(memberSvc, subSvc, log)
+	adminMemberHandler   := handlers.NewAdminMemberHandler(memberSvc, subSvc, aiRepo, aiSvc, log)
 	adminPlanHandler     := handlers.NewAdminPlanHandler(planSvc, log)
 	adminSubHandler      := handlers.NewAdminSubscriptionHandler(subSvc, log)
 	adminPaymentHandler  := handlers.NewAdminPaymentHandler(paymentSvc, log)
+	adminExpenseHandler  := handlers.NewAdminExpenseHandler(expenseSvc, log)
+	adminFinancialsHandler := handlers.NewAdminFinancialsHandler(financialSvc, log)
 	memberHandler          := handlers.NewMemberHandler(memberSvc, subSvc, paymentSvc, weightLogSvc, workoutLogSvc, dietLogSvc, log)
 	adminMsgHandler        := handlers.NewAdminMessageHandler(messageSvc, log)
 	memberMsgHandler       := handlers.NewMemberMessageHandler(messageSvc, log)
 	adminSettingsHandler   := handlers.NewAdminSettingsHandler(settingSvc, log)
 	memberNotifHandler     := handlers.NewMemberNotificationHandler(fcmTokenRepo, settingRepo, log)
+	uploadHandler          := handlers.NewUploadHandler(cfg.Upload, log)
+	aiHandler              := handlers.NewAIHandler(aiSvc, aiRepo, memberRepo, log)
+	superAdminHandler      := handlers.NewSuperAdminHandler(memberRepo, adminPgRepo, log)
+	superAdminAuditHandler := handlers.NewSuperAdminAuditHandler(aiRepo, log)
 
 	// ── Notifier (FCM or noop) ────────────────────────────────────────────────
 	var push notifier.Notifier
@@ -176,6 +200,32 @@ func main() {
 
 	// ── Global middleware ─────────────────────────────────────────────────────
 	app.Use(fiberrecover.New())
+
+	// CORS — must be before auth so pre-flight OPTIONS requests pass through.
+	{
+		filtered := make([]string, 0)
+		for _, o := range cfg.CORS.AllowedOrigins {
+			if o != "" && o != "*" {
+				filtered = append(filtered, o)
+			}
+		}
+		if len(filtered) == 0 {
+			filtered = []string{
+				"http://localhost:3000",
+				"http://localhost:5050",
+				"http://localhost:5173",
+				"http://10.0.2.2:3000",
+			}
+		}
+		app.Use(fibercors.New(fibercors.Config{
+			AllowOrigins: joinOrigins(filtered),
+			AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+			AllowHeaders: "Origin,Content-Type,Accept,Authorization,X-Request-ID",
+			ExposeHeaders: "X-Request-ID",
+			MaxAge:        86400,
+		}))
+	}
+
 	app.Use(middleware.RequestID())
 	app.Use(middleware.RequestLogger(log))
 
@@ -186,8 +236,24 @@ func main() {
 	app.Get("/healthz", server.Healthz)
 	app.Get("/readyz", server.ReadyzHandler(db, redisClient))
 
+	// ── Static Files ──────────────────────────────────────────────────────────
+	app.Static("/uploads", cfg.Upload.Dir)
+
 	// ── API v1 ────────────────────────────────────────────────────────────────
 	v1 := app.Group("/api/v1")
+
+	// Upload (requires auth)
+	v1.Post("/upload", middleware.RequireAuth(jwtManager), uploadHandler.HandleUpload)
+
+	// AI (requires auth + permission)
+	aiGroup := v1.Group("/ai", 
+		middleware.RequireAuth(jwtManager),
+		middleware.RequireAIPermission(aiRepo, memberPgRepo, log),
+	)
+	aiGroup.Patch("/profile", aiHandler.SetupAIProfile)
+	aiGroup.Post("/diet-chart", aiHandler.GenerateDietChart)
+	aiGroup.Post("/food-log", middleware.RequireDailyFoodLimit(aiRepo, log), aiHandler.AnalyzeFoodImage)
+	aiGroup.Get("/food-logs", aiHandler.GetFoodLogs)
 
 	// Auth — rate-limited to 10 req/min per IP to slow brute-force attempts.
 	authRateLimit := fiberlimiter.New(fiberlimiter.Config{
@@ -214,10 +280,10 @@ func main() {
 		authHandler.ChangePassword,
 	)
 
-	// Admin sub-router — all routes require admin JWT.
+	// Admin sub-router — admin and superadmin JWTs are accepted.
 	admin := v1.Group("/admin",
 		middleware.RequireAuth(jwtManager),
-		middleware.RequireRole(appauth.RoleAdmin),
+		middleware.RequireAdminOrSuperAdmin(),
 	)
 
 	// Admin — member management (Step 5)
@@ -228,6 +294,11 @@ func main() {
 	admin.Patch("/members/:id/status",            adminMemberHandler.UpdateMemberStatus)
 	admin.Post("/members/:id/password/reset",     adminMemberHandler.ResetMemberPassword)
 	admin.Delete("/members/:id",                  adminMemberHandler.DeleteMember)
+	admin.Patch("/members/:id/ai",                 adminMemberHandler.UpdateMemberAI)
+	admin.Post("/members/:id/diet-chart",          adminMemberHandler.GenerateMemberDietChart)
+	admin.Post("/members/:id/diet-chart/approve",  adminMemberHandler.ApproveMemberDietChart)
+	admin.Post("/members/:id/diet-chart/decline",  adminMemberHandler.DeclineMemberDietChart)
+	admin.Patch("/members/:id/profile-picture",    adminMemberHandler.UpdateMemberProfilePicture)
 
 	// Admin — plans (Step 6)
 	admin.Post("/plans",        adminPlanHandler.CreatePlan)
@@ -257,6 +328,13 @@ func main() {
 	admin.Post("/payments",                 adminPaymentHandler.RecordPayment)
 	admin.Get("/members/:id/payments",      adminPaymentHandler.ListMemberPayments)
 
+	// Admin — operational expenses & financials
+	admin.Post("/expenses",            adminExpenseHandler.RecordExpense)
+	admin.Get("/expenses",             adminExpenseHandler.ListExpenses)
+	admin.Get("/expenses/summary",     adminExpenseHandler.GetExpensesSummary)
+	admin.Get("/financials/calendar",  adminExpenseHandler.GetDailyFinancials)
+	admin.Get("/financials/report",    adminFinancialsHandler.GetFinancialsReport)
+
 	// Member self-service sub-router (Step 8)
 	member := v1.Group("/member",
 		middleware.RequireAuth(jwtManager),
@@ -282,6 +360,28 @@ func main() {
 	member.Post("/fcm-token",             memberNotifHandler.RegisterFCMToken)
 	member.Patch("/notifications/mute",   memberNotifHandler.MuteNotifications)
 
+	// SuperAdmin sub-router — superadmin JWT only.
+	superadmin := v1.Group("/superadmin",
+		middleware.RequireAuth(jwtManager),
+		middleware.RequireSuperAdmin(),
+	)
+	superadmin.Get("/stats",  superAdminHandler.Stats)
+	superadmin.Get("/admins", superAdminHandler.ListAdmins)
+
+	// SuperAdmin — global AI audit + cost endpoints
+	superadmin.Get("/audit/ai",              superAdminAuditHandler.ListAIAudit)
+	superadmin.Get("/audit/ai/cost-by-gym",  superAdminAuditHandler.AICostByGym)
+	superadmin.Get("/audit/ai/heavy-users",  superAdminAuditHandler.AIHeavyUsers)
+
+	// Machine-to-machine admin creation endpoint secured via X-API-KEY environment configuration
+	v1.Post("/sa/admins",
+		middleware.RequireAPIKey(cfg.SuperAdmin.ApiKey),
+		superAdminHandler.CreateAdmin,
+	)
+
+	// ── Superadmin startup seed ───────────────────────────────────────────────
+	seedSuperAdmin(context.Background(), adminPgRepo, cfg, log)
+
 	// ── Graceful shutdown ─────────────────────────────────────────────────────
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -303,4 +403,17 @@ func main() {
 		log.Error("graceful shutdown failed", "error", err)
 	}
 	log.Info("server stopped")
+}
+
+// joinOrigins joins a slice of allowed origins into a comma-separated string
+// as required by the Fiber CORS middleware.
+func joinOrigins(origins []string) string {
+	result := ""
+	for i, o := range origins {
+		if i > 0 {
+			result += ","
+		}
+		result += o
+	}
+	return result
 }

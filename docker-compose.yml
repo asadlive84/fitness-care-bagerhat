@@ -9,8 +9,12 @@ version: "3.9"
 #   2. redis     (waits until redis-cli ping)
 #   3. migrate   (runs all pending migrations, then exits 0)
 #   4. app       (starts only after migrate completes successfully)
+#   5. frontend  (starts after app is healthy)
 #
-# On subsequent runs migrations are already applied — migrate exits 0 instantly.
+# Ports:
+#   API      → http://localhost:9000
+#   Frontend → http://localhost:5000
+#   Swagger  → http://localhost:9000/swagger/index.html
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
@@ -65,7 +69,7 @@ services:
       - "up"
     restart: on-failure   # retry if postgres wasn't ready yet
 
-  # ── Application ───────────────────────────────────────────────────────────────
+  # ── API (Go backend) ──────────────────────────────────────────────────────────
   app:
     build:
       context:    .
@@ -74,9 +78,12 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      APP_ENV:      production
-      DATABASE_DSN: postgres://gym:gym_secret@postgres:5432/fitnesscare?sslmode=disable
-      REDIS_ADDR:   redis:6379
+      APP_ENV:             production
+      DATABASE_DSN:        postgres://gym:gym_secret@postgres:5432/fitnesscare?sslmode=disable
+      REDIS_ADDR:          redis:6379
+      SUPERADMIN_EMAIL:     ${SUPERADMIN_EMAIL:-superadmin@fitnesscare.local}
+      SUPERADMIN_PASSWORD:  ${SUPERADMIN_PASSWORD:-ChangeMe@123}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5050,http://localhost:5000,http://localhost:3000}
     ports:
       - "9000:9000"
     depends_on:
@@ -86,6 +93,24 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully   # wait for migrations to finish
+
+  # ── Frontend (Next.js) ────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context:   ./frontend
+      dockerfile: Dockerfile
+      args:
+        # The browser calls the API on the host machine's exposed port.
+        # Change this to your server's public URL when deploying.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:9000}
+    container_name: fitnesscare_frontend
+    restart: unless-stopped
+    ports:
+      - "5050:3000"
+    depends_on:
+      - app
+    environment:
+      NODE_ENV: production
 
 volumes:
   postgres_data:

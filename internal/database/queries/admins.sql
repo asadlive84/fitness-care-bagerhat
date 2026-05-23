@@ -1,6 +1,6 @@
 -- name: CreateAdmin :one
-INSERT INTO admins (id, name, phone, email, password_hash)
-VALUES (@id, @name, @phone, @email, @password_hash)
+INSERT INTO admins (id, name, phone, email, password_hash, role, parent_admin_id, created_by_superadmin_id)
+VALUES (@id, @name, @phone, @email, @password_hash, @role, @parent_admin_id, @created_by_superadmin_id)
 RETURNING *;
 
 -- name: GetAdminByID :one

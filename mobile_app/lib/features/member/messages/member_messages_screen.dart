@@ -27,10 +27,10 @@ class _MemberMessagesScreenState extends ConsumerState<MemberMessagesScreen> {
     super.dispose();
   }
 
-  void _scrollToBottom() {
+  void _scrollToLatest() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
+        0,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
@@ -70,13 +70,13 @@ class _MemberMessagesScreenState extends ConsumerState<MemberMessagesScreen> {
                 onRetry: () => ref.read(chatControllerProvider.notifier).load(),
               ),
               data: (messages) {
-                WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
                 return ListView.builder(
                   controller: _scrollController,
                   padding: AppSpacing.paddingAll20,
+                  reverse: true,
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    final message = messages[index];
+                    final message = messages[messages.length - 1 - index];
                     return ChatBubble(
                       message: message,
                       isMe: message.senderRole == 'member',
@@ -92,6 +92,7 @@ class _MemberMessagesScreenState extends ConsumerState<MemberMessagesScreen> {
               if (_messageController.text.trim().isEmpty) return;
               ref.read(chatControllerProvider.notifier).send(_messageController.text.trim());
               _messageController.clear();
+              WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
             },
           ),
         ],

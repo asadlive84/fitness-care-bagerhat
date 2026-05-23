@@ -9,7 +9,8 @@ class ChatMessage with _$ChatMessage {
     required String id,
     required String content,
     @JsonKey(name: 'sender_role') required String senderRole, // 'admin' or 'member'
-    @JsonKey(name: 'created_at') required DateTime createdAt,
+    @JsonKey(name: 'sent_at') required DateTime createdAt,
+    @JsonKey(name: 'is_broadcast') @Default(false) bool isBroadcast,
   }) = _ChatMessage;
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) =>

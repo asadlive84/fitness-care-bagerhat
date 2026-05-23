@@ -1,5 +1,6 @@
 import 'package:fitness_care_bagerhat/core/api/api_client.dart';
 import 'package:fitness_care_bagerhat/core/api/api_response.dart';
+import 'package:fitness_care_bagerhat/features/admin/dashboard/dashboard_stats.dart';
 import 'package:fitness_care_bagerhat/features/admin/members/member.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,5 +29,21 @@ class MemberHomeRepository {
       (json) => json != null ? MemberSubscription.fromJson(json as Map<String, dynamic>) : null,
     );
     return apiResponse.data;
+  }
+
+  Future<List<ChartPoint>> getWeightTrend() async {
+    final response = await _apiClient.get('/api/v1/member/weight-logs');
+    final apiResponse = ApiResponse.fromJson(
+      response.data as Map<String, dynamic>,
+      (json) => (json as List<dynamic>).map((e) {
+        final date = DateTime.parse(e['logged_at'] as String);
+        return ChartPoint(
+          label: '${date.day}/${date.month}',
+          value: (e['weight_kg'] as num).toDouble(),
+        );
+      }).toList(),
+    );
+    // Backend returns DESC (newest first). Chart needs ASC (oldest first).
+    return apiResponse.data?.reversed.toList() ?? [];
   }
 }

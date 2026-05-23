@@ -130,6 +130,22 @@ class SettingsScreen extends ConsumerWidget {
                           .upsert('weight_reminder_days', v),
                     ),
                     const Divider(height: 1),
+                    _NumberSettingTile(
+                      label: 'Prepaid Grace Period (days)',
+                      subtitle: 'Days before a prepaid subscription becomes overdue.',
+                      icon: PhosphorIcons.calendarPlus(),
+                      value: _getGraceDays(settingsMap, 'prepaid_days'),
+                      onSave: (v) => _saveGraceDays(ref, settingsMap, 'prepaid_days', v),
+                    ),
+                    const Divider(height: 1),
+                    _NumberSettingTile(
+                      label: 'Postpaid Grace Period (days)',
+                      subtitle: 'Days allowed after expiry to pay without being overdue.',
+                      icon: PhosphorIcons.calendarStar(),
+                      value: _getGraceDays(settingsMap, 'postpaid_days'),
+                      onSave: (v) => _saveGraceDays(ref, settingsMap, 'postpaid_days', v),
+                    ),
+                    const Divider(height: 1),
                     _TimeSettingTile(
                       label: 'Quiet Window Start',
                       subtitle: 'No push notifications before this hour.',
@@ -186,6 +202,26 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  int _getGraceDays(Map<String, AppSetting> map, String key) {
+    final val = map['grace_periods']?.value;
+    if (val is Map) return val[key] as int? ?? 5;
+    return 5;
+  }
+
+  Future<void> _saveGraceDays(WidgetRef ref, Map<String, AppSetting> map, String key, int value) async {
+    final val = map['grace_periods']?.value;
+    final data = <String, dynamic>{
+      'prepaid_days': 5,
+      'postpaid_days': 5,
+    };
+    if (val is Map) {
+      data['prepaid_days'] = val['prepaid_days'] as int? ?? 5;
+      data['postpaid_days'] = val['postpaid_days'] as int? ?? 5;
+    }
+    data[key] = value;
+    await ref.read(_settingsProvider.notifier).upsert('grace_periods', data);
   }
 
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {

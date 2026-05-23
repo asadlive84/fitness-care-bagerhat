@@ -105,7 +105,7 @@ func TestMigrationMemberAndPlan(t *testing.T) {
 	assert.GreaterOrEqual(t, len(plans), 1)
 
 	// Default settings were seeded by the migration
-	settings, err := q.GetAllSettings(ctx)
+	settings, err := q.GetAllSettings(ctx, uuid.NullUUID{})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(settings), 3, "migration should seed 3 default settings")
 }

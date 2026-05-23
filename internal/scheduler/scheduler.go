@@ -96,9 +96,7 @@ func (s *Scheduler) register() {
 
 // renewalReminderJob enqueues notifications for subscriptions expiring soon.
 func (s *Scheduler) renewalReminderJob(ctx context.Context) error {
-	nudgeDays := s.settings.GetNudgeDays(ctx)
-
-	expiring, err := s.subs.ListExpiring(ctx, nudgeDays)
+	expiring, err := s.subs.ListExpiring(ctx, 0)
 	if err != nil {
 		return err
 	}
@@ -130,14 +128,19 @@ func (s *Scheduler) renewalReminderJob(ctx context.Context) error {
 
 // weightReminderJob enqueues weight-log reminders for inactive members.
 func (s *Scheduler) weightReminderJob(ctx context.Context) error {
-	reminderDays := s.settings.GetWeightReminderDays(ctx)
-
-	members, err := s.weights.ListMembersNeedingReminder(ctx, reminderDays)
+	members, err := s.weights.ListMembersNeedingReminder(ctx, 0)
 	if err != nil {
 		return err
 	}
 
 	for _, m := range members {
+		// Fetch member's admin lineage to get custom reminderDays for payload info if desired, or default to 7
+		var adminID *uuid.UUID
+		if m.CreatedByAdminID != nil {
+			adminID = m.CreatedByAdminID
+		}
+		reminderDays := s.settings.GetWeightReminderDays(ctx, adminID)
+
 		payload, _ := json.Marshal(models.WeightReminderPayload{
 			MemberName:   m.Name,
 			DaysSinceLog: reminderDays,
@@ -170,11 +173,18 @@ func (s *Scheduler) dispatchJob(ctx context.Context) error {
 		return nil
 	}
 
-	window, _ := s.settings.GetQuietWindow(ctx)
 	now := time.Now()
 
 	sent, skipped, failed := 0, 0, 0
 	for _, n := range pending {
+		// Fetch member to get admin lineage
+		member, err := s.members.GetByID(ctx, n.MemberID)
+		var adminID *uuid.UUID
+		if err == nil && member != nil && member.CreatedByAdminID != nil {
+			adminID = member.CreatedByAdminID
+		}
+		window, _ := s.settings.GetQuietWindow(ctx, adminID)
+
 		if notifier.IsInQuietWindow(now, window, s.tz) {
 			// Reschedule to the end of the quiet window.
 			end := notifier.WindowEnd(now, window, s.tz)

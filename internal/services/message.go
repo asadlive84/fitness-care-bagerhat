@@ -21,12 +21,13 @@ var ValidBroadcastFilters = map[string]bool{
 
 // MessageService handles all messaging logic — admin and member directions.
 type MessageService struct {
-	msgs repositories.MessageRepository
+	msgs    repositories.MessageRepository
+	members repositories.MemberRepository
 }
 
 // NewMessageService constructs a MessageService.
-func NewMessageService(msgs repositories.MessageRepository) *MessageService {
-	return &MessageService{msgs: msgs}
+func NewMessageService(msgs repositories.MessageRepository, members repositories.MemberRepository) *MessageService {
+	return &MessageService{msgs: msgs, members: members}
 }
 
 // SendBroadcast creates a broadcast message from admin to a filtered audience.
@@ -78,8 +79,13 @@ func (s *MessageService) GetConversations(ctx context.Context) ([]*models.Conver
 		if err != nil {
 			continue // skip members where we can't get the latest message
 		}
+		name := memberID.String()
+		if m, err := s.members.GetByID(ctx, memberID); err == nil {
+			name = m.Name
+		}
 		summaries = append(summaries, &models.ConversationSummary{
 			MemberID:    memberID,
+			MemberName:  name,
 			LastMessage: latest.Content,
 			LastSentAt:  latest.SentAt,
 			SenderRole:  latest.SenderRole,

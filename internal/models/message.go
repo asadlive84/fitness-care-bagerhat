@@ -22,6 +22,7 @@ type Message struct {
 // ConversationSummary is one entry in the admin conversation list.
 type ConversationSummary struct {
 	MemberID    uuid.UUID `json:"member_id"`
+	MemberName  string    `json:"member_name"`
 	LastMessage string    `json:"last_message"`
 	LastSentAt  time.Time `json:"last_sent_at"`
 	SenderRole  string    `json:"sender_role"` // who sent the last message

@@ -12,8 +12,9 @@ import (
 
 // Role constants used across the application.
 const (
-	RoleAdmin  = "admin"
-	RoleMember = "member"
+	RoleAdmin      = "admin"
+	RoleSuperAdmin = "superadmin"
+	RoleMember     = "member"
 )
 
 // tokenType distinguishes access from refresh tokens so a refresh token

@@ -25,10 +25,10 @@ type fakeSettingSvc struct {
 	upsertErr    error
 }
 
-func (f *fakeSettingSvc) GetAll(_ context.Context) ([]*models.Setting, error) {
+func (f *fakeSettingSvc) GetAll(_ context.Context, _ *uuid.UUID) ([]*models.Setting, error) {
 	return f.getResult, f.getErr
 }
-func (f *fakeSettingSvc) UpsertSetting(_ context.Context, _ string, _ json.RawMessage) (*models.Setting, error) {
+func (f *fakeSettingSvc) UpsertSetting(_ context.Context, _ string, _ json.RawMessage, _ *uuid.UUID) (*models.Setting, error) {
 	return f.upsertResult, f.upsertErr
 }
 

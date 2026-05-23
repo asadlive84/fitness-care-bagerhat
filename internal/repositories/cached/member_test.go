@@ -106,6 +106,11 @@ func (f *fakeMemberRepo) Delete(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 
+func (f *fakeMemberRepo) InvalidateCache(_ context.Context, _ uuid.UUID, _ string) error {
+	f.callCount.Add(1)
+	return nil
+}
+
 // compile-time interface check
 var _ repositories.MemberRepository = (*fakeMemberRepo)(nil)
 

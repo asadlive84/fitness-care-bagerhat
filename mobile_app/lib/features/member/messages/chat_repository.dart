@@ -18,7 +18,7 @@ class ChatRepository {
       response.data as Map<String, dynamic>,
       (json) => (json as List).map((e) => ChatMessage.fromJson(e as Map<String, dynamic>)).toList(),
     );
-    return apiResponse.data!;
+    return apiResponse.data ?? [];
   }
 
   Future<void> sendMessage(String content) async {

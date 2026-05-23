@@ -8,22 +8,46 @@ package sqlcdb
 import (
 	"context"
 	"encoding/json"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 const getAllSettings = `-- name: GetAllSettings :many
-SELECT key, value, updated_at FROM settings ORDER BY key
+WITH admin_settings AS (
+    SELECT key, value, updated_at, admin_id,
+           ROW_NUMBER() OVER (PARTITION BY key ORDER BY admin_id DESC NULLS LAST) as rn
+    FROM settings
+    WHERE admin_id = $1 OR admin_id IS NULL
+)
+SELECT key, value, updated_at, admin_id
+FROM admin_settings
+WHERE rn = 1
+ORDER BY key
 `
 
-func (q *Queries) GetAllSettings(ctx context.Context) ([]Setting, error) {
-	rows, err := q.db.QueryContext(ctx, getAllSettings)
+type GetAllSettingsRow struct {
+	Key       string          `json:"key"`
+	Value     json.RawMessage `json:"value"`
+	UpdatedAt time.Time       `json:"updated_at"`
+	AdminID   uuid.NullUUID   `json:"admin_id"`
+}
+
+func (q *Queries) GetAllSettings(ctx context.Context, adminID uuid.NullUUID) ([]GetAllSettingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllSettings, adminID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Setting
+	var items []GetAllSettingsRow
 	for rows.Next() {
-		var i Setting
-		if err := rows.Scan(&i.Key, &i.Value, &i.UpdatedAt); err != nil {
+		var i GetAllSettingsRow
+		if err := rows.Scan(
+			&i.Key,
+			&i.Value,
+			&i.UpdatedAt,
+			&i.AdminID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -38,34 +62,78 @@ func (q *Queries) GetAllSettings(ctx context.Context) ([]Setting, error) {
 }
 
 const getSettingByKey = `-- name: GetSettingByKey :one
-SELECT key, value, updated_at FROM settings WHERE key = $1 LIMIT 1
+SELECT key, value, updated_at, admin_id FROM settings
+WHERE key = $1 AND (admin_id = $2 OR admin_id IS NULL)
+ORDER BY admin_id DESC NULLS LAST
+LIMIT 1
 `
 
-func (q *Queries) GetSettingByKey(ctx context.Context, key string) (Setting, error) {
-	row := q.db.QueryRowContext(ctx, getSettingByKey, key)
+type GetSettingByKeyParams struct {
+	Key     string        `json:"key"`
+	AdminID uuid.NullUUID `json:"admin_id"`
+}
+
+func (q *Queries) GetSettingByKey(ctx context.Context, arg GetSettingByKeyParams) (Setting, error) {
+	row := q.db.QueryRowContext(ctx, getSettingByKey, arg.Key, arg.AdminID)
 	var i Setting
-	err := row.Scan(&i.Key, &i.Value, &i.UpdatedAt)
+	err := row.Scan(
+		&i.Key,
+		&i.Value,
+		&i.UpdatedAt,
+		&i.AdminID,
+	)
 	return i, err
 }
 
-const upsertSetting = `-- name: UpsertSetting :one
-INSERT INTO settings (key, value, updated_at)
-VALUES ($1, $2, NOW())
-ON CONFLICT (key)
-DO UPDATE SET
+const upsertSettingGlobal = `-- name: UpsertSettingGlobal :one
+INSERT INTO settings (key, value, admin_id, updated_at)
+VALUES ($1, $2, NULL, NOW())
+ON CONFLICT (key) WHERE admin_id IS NULL DO UPDATE SET
     value      = EXCLUDED.value,
     updated_at = NOW()
-RETURNING key, value, updated_at
+RETURNING key, value, updated_at, admin_id
 `
 
-type UpsertSettingParams struct {
+type UpsertSettingGlobalParams struct {
 	Key   string          `json:"key"`
 	Value json.RawMessage `json:"value"`
 }
 
-func (q *Queries) UpsertSetting(ctx context.Context, arg UpsertSettingParams) (Setting, error) {
-	row := q.db.QueryRowContext(ctx, upsertSetting, arg.Key, arg.Value)
+func (q *Queries) UpsertSettingGlobal(ctx context.Context, arg UpsertSettingGlobalParams) (Setting, error) {
+	row := q.db.QueryRowContext(ctx, upsertSettingGlobal, arg.Key, arg.Value)
 	var i Setting
-	err := row.Scan(&i.Key, &i.Value, &i.UpdatedAt)
+	err := row.Scan(
+		&i.Key,
+		&i.Value,
+		&i.UpdatedAt,
+		&i.AdminID,
+	)
+	return i, err
+}
+
+const upsertSettingTenant = `-- name: UpsertSettingTenant :one
+INSERT INTO settings (key, value, admin_id, updated_at)
+VALUES ($1, $2, $3, NOW())
+ON CONFLICT (key, admin_id) WHERE admin_id IS NOT NULL DO UPDATE SET
+    value      = EXCLUDED.value,
+    updated_at = NOW()
+RETURNING key, value, updated_at, admin_id
+`
+
+type UpsertSettingTenantParams struct {
+	Key     string          `json:"key"`
+	Value   json.RawMessage `json:"value"`
+	AdminID uuid.NullUUID   `json:"admin_id"`
+}
+
+func (q *Queries) UpsertSettingTenant(ctx context.Context, arg UpsertSettingTenantParams) (Setting, error) {
+	row := q.db.QueryRowContext(ctx, upsertSettingTenant, arg.Key, arg.Value, arg.AdminID)
+	var i Setting
+	err := row.Scan(
+		&i.Key,
+		&i.Value,
+		&i.UpdatedAt,
+		&i.AdminID,
+	)
 	return i, err
 }

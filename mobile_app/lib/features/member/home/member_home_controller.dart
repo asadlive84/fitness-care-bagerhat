@@ -1,3 +1,4 @@
+import 'package:fitness_care_bagerhat/features/admin/dashboard/dashboard_stats.dart';
 import 'package:fitness_care_bagerhat/features/admin/members/member.dart';
 import 'package:fitness_care_bagerhat/features/member/home/member_home_repository.dart';
 import 'package:fitness_care_bagerhat/features/member/home/member_home_state.dart';
@@ -26,10 +27,17 @@ class MemberHomeController extends StateNotifier<AsyncValue<MemberHomeState>> {
         subscription = null;
       }
       
+      List<ChartPoint> weightTrend = [];
+      try {
+        weightTrend = await _repository.getWeightTrend();
+      } catch (_) {
+        // Fallback to empty if error
+      }
+      
       state = AsyncValue.data(MemberHomeState(
         member: profile,
         activeSubscription: subscription,
-        weightTrend: [],
+        weightTrend: weightTrend,
       ));
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);

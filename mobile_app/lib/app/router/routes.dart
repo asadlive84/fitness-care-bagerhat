@@ -25,12 +25,14 @@ abstract final class Routes {
   // ─── Member ────────────────────────────────────────────
   static const memberHome = '/member';
   static const memberProfile = '/member/profile';
+  static const memberDietChart = '/member/diet-chart';
   static const memberLogs = '/member/logs';
   static const memberSubscription = '/member/subscription';
   static const memberPayments = '/member/payments';
   static const memberWeightLog = '/member/logs/weight';
   static const memberWorkoutLog = '/member/logs/workout';
   static const memberDietLog = '/member/logs/diet';
+  static const memberFoodLog = '/member/logs/food';
   static const memberMessages = '/member/messages';
   static String memberChat(String conversationId) =>
       '/member/messages/$conversationId';

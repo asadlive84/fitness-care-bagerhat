@@ -52,11 +52,16 @@ type MemberRepository interface {
 	// (subscriptions, payments, logs, messages, notifications, FCM tokens)
 	// in a single atomic transaction.
 	Delete(ctx context.Context, id uuid.UUID) error
+
+	// InvalidateCache clears the cached member profile.
+	InvalidateCache(ctx context.Context, id uuid.UUID, phone string) error
 }
 
 // AdminRepository covers persistence for the single admin account.
 type AdminRepository interface {
 	Create(ctx context.Context, a *models.Admin, passwordHash string) error
+	// CreateSuperAdmin inserts an admin row with role = "superadmin".
+	CreateSuperAdmin(ctx context.Context, a *models.Admin, passwordHash string) error
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Admin, error)
 	GetByEmail(ctx context.Context, email string) (*models.Admin, error)
 	GetAdminCredentials(ctx context.Context, email string) (*models.AdminCredentials, error)
@@ -105,9 +110,9 @@ type SubscriptionRepository interface {
 
 // SettingRepository covers the settings key-value store.
 type SettingRepository interface {
-	GetAll(ctx context.Context) ([]*models.Setting, error)
-	GetByKey(ctx context.Context, key string) (*models.Setting, error)
-	Upsert(ctx context.Context, key string, value json.RawMessage) (*models.Setting, error)
+	GetAll(ctx context.Context, adminID *uuid.UUID) ([]*models.Setting, error)
+	GetByKey(ctx context.Context, key string, adminID *uuid.UUID) (*models.Setting, error)
+	Upsert(ctx context.Context, key string, value json.RawMessage, adminID *uuid.UUID) (*models.Setting, error)
 }
 
 // NotificationRepository covers the notifications queue used by the scheduler.
@@ -163,3 +168,21 @@ type DietLogRepository interface {
 	Create(ctx context.Context, memberID uuid.UUID, content string, loggedAt time.Time) error
 	ListByMemberID(ctx context.Context, memberID uuid.UUID, page, limit int) ([]models.DietLog, error)
 }
+
+// ExpenseRepository covers operational expenses and financials persistence (not cached).
+type ExpenseRepository interface {
+	Create(ctx context.Context, exp *models.Expense) error
+	List(ctx context.Context, filter models.ListExpensesFilter) ([]*models.Expense, int64, error)
+	GetExpensesSummary(ctx context.Context, todayStart, todayEnd, yesterdayStart, yesterdayEnd, monthStart, monthEnd time.Time) (*models.ExpensesSummary, error)
+	GetDailyFinancials(ctx context.Context, startDate, endDate time.Time, timezone string) ([]*models.DailyFinancial, error)
+}
+
+// FinancialRepository covers centralized financial analytics and timeline ledger data (not cached).
+type FinancialRepository interface {
+	GetDailyTimeline(ctx context.Context, startDate, endDate time.Time, timezone string) ([]*models.DailyFinancial, error)
+	GetRevenueByPlan(ctx context.Context, startDate, endDate time.Time) ([]*models.PlanRevenueBreakdown, error)
+	GetRevenueByMethod(ctx context.Context, startDate, endDate time.Time) ([]*models.MethodRevenueBreakdown, error)
+	GetExpensesByCategory(ctx context.Context, startDate, endDate time.Time) ([]*models.CategoryExpenseBreakdown, error)
+}
+
+

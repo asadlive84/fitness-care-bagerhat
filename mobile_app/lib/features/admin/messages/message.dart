@@ -23,6 +23,7 @@ class Message with _$Message {
 class ConversationSummary with _$ConversationSummary {
   const factory ConversationSummary({
     @JsonKey(name: 'member_id') required String memberId,
+    @JsonKey(name: 'member_name') String? memberName,
     @JsonKey(name: 'last_message') required String lastMessage,
     @JsonKey(name: 'last_sent_at') required DateTime lastSentAt,
     @JsonKey(name: 'sender_role') required String senderRole,

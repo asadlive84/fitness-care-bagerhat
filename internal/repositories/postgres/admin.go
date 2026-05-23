@@ -13,21 +13,34 @@ import (
 
 // AdminRepo is a pure Postgres implementation for admins.
 type AdminRepo struct {
-	q *sqlcdb.Queries
+	q  *sqlcdb.Queries
+	db sqlcdb.DBTX // kept for raw queries (e.g. CreateSuperAdmin)
 }
 
 func NewAdminRepo(db sqlcdb.DBTX) *AdminRepo {
-	return &AdminRepo{q: sqlcdb.New(db)}
+	return &AdminRepo{q: sqlcdb.New(db), db: db}
 }
 
 func (r *AdminRepo) Create(ctx context.Context, a *models.Admin, passwordHash string) error {
 	_, err := r.q.CreateAdmin(ctx, sqlcdb.CreateAdminParams{
-		ID:           a.ID,
-		Name:         a.Name,
-		Phone:        nullString(a.Phone),
-		Email:        a.Email,
-		PasswordHash: passwordHash,
+		ID:                    a.ID,
+		Name:                  a.Name,
+		Phone:                 nullString(a.Phone),
+		Email:                 a.Email,
+		PasswordHash:          passwordHash,
+		Role:                  a.Role,
+		ParentAdminID:         nullUUID(a.ParentAdminID),
+		CreatedBySuperadminID: nullUUID(a.CreatedBySuperadminID),
 	})
+	return err
+}
+
+// CreateSuperAdmin inserts an admin with role = 'superadmin' using raw SQL
+// so we don't need to regenerate sqlc code for a single extra column.
+func (r *AdminRepo) CreateSuperAdmin(ctx context.Context, a *models.Admin, passwordHash string) error {
+	const rawSQL = `INSERT INTO admins (id, name, email, password_hash, role)
+	                VALUES ($1, $2, $3, $4, 'superadmin')`
+	_, err := r.db.ExecContext(ctx, rawSQL, a.ID, a.Name, a.Email, passwordHash)
 	return err
 }
 
@@ -64,6 +77,7 @@ func (r *AdminRepo) GetAdminCredentials(ctx context.Context, email string) (*mod
 	return &models.AdminCredentials{
 		AdminID:      row.ID,
 		PasswordHash: row.PasswordHash,
+		Role:         row.Role,
 	}, nil
 }
 

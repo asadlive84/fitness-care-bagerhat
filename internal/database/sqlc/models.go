@@ -14,13 +14,36 @@ import (
 )
 
 type Admin struct {
-	ID           uuid.UUID      `json:"id"`
-	Name         string         `json:"name"`
-	Phone        sql.NullString `json:"phone"`
-	Email        string         `json:"email"`
-	PasswordHash string         `json:"password_hash"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
+	ID                    uuid.UUID      `json:"id"`
+	Name                  string         `json:"name"`
+	Phone                 sql.NullString `json:"phone"`
+	Email                 string         `json:"email"`
+	PasswordHash          string         `json:"password_hash"`
+	CreatedAt             time.Time      `json:"created_at"`
+	UpdatedAt             time.Time      `json:"updated_at"`
+	Role                  string         `json:"role"`
+	ParentAdminID         uuid.NullUUID  `json:"parent_admin_id"`
+	CreatedBySuperadminID uuid.NullUUID  `json:"created_by_superadmin_id"`
+}
+
+type AiPrompt struct {
+	ID         int32         `json:"id"`
+	PromptType string        `json:"prompt_type"`
+	PromptText string        `json:"prompt_text"`
+	IsActive   bool          `json:"is_active"`
+	CreatedAt  time.Time     `json:"created_at"`
+	UpdatedAt  time.Time     `json:"updated_at"`
+	AdminID    uuid.NullUUID `json:"admin_id"`
+}
+
+type AiTokenLog struct {
+	ID               int64     `json:"id"`
+	MemberID         uuid.UUID `json:"member_id"`
+	FeatureUsed      string    `json:"feature_used"`
+	PromptTokens     int32     `json:"prompt_tokens"`
+	CompletionTokens int32     `json:"completion_tokens"`
+	TotalTokens      int32     `json:"total_tokens"`
+	CreatedAt        time.Time `json:"created_at"`
 }
 
 type DietLog struct {
@@ -28,6 +51,17 @@ type DietLog struct {
 	MemberID uuid.UUID `json:"member_id"`
 	Content  string    `json:"content"`
 	LoggedAt time.Time `json:"logged_at"`
+}
+
+type Expense struct {
+	ID          uuid.UUID `json:"id"`
+	Amount      float64   `json:"amount"`
+	Description string    `json:"description"`
+	Category    string    `json:"category"`
+	SpentAt     time.Time `json:"spent_at"`
+	RecordedBy  uuid.UUID `json:"recorded_by"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type FcmToken struct {
@@ -40,27 +74,46 @@ type FcmToken struct {
 }
 
 type Member struct {
-	ID                 uuid.UUID       `json:"id"`
-	Name               string          `json:"name"`
-	Phone              string          `json:"phone"`
-	PasswordHash       string          `json:"password_hash"`
-	Goal               sql.NullString  `json:"goal"`
-	JoinDate           time.Time       `json:"join_date"`
-	CurrentWeight      sql.NullFloat64 `json:"current_weight"`
-	Status             string          `json:"status"`
-	MustChangePassword bool            `json:"must_change_password"`
-	CreatedAt          time.Time       `json:"created_at"`
-	UpdatedAt          time.Time       `json:"updated_at"`
-	HeightCm           sql.NullFloat64 `json:"height_cm"`
-	DateOfBirth        sql.NullTime    `json:"date_of_birth"`
-	Religion           sql.NullString  `json:"religion"`
-	BloodGroup         sql.NullString  `json:"blood_group"`
-	Hobbies            []string        `json:"hobbies"`
-	PresentAddress     sql.NullString  `json:"present_address"`
-	PermanentAddress   sql.NullString  `json:"permanent_address"`
-	Occupation         sql.NullString  `json:"occupation"`
-	Nid                sql.NullString  `json:"nid"`
-	EmergencyPhone     sql.NullString  `json:"emergency_phone"`
+	ID                   uuid.UUID             `json:"id"`
+	Name                 string                `json:"name"`
+	Phone                string                `json:"phone"`
+	PasswordHash         string                `json:"password_hash"`
+	Goal                 sql.NullString        `json:"goal"`
+	JoinDate             time.Time             `json:"join_date"`
+	CurrentWeight        sql.NullFloat64       `json:"current_weight"`
+	Status               string                `json:"status"`
+	MustChangePassword   bool                  `json:"must_change_password"`
+	CreatedAt            time.Time             `json:"created_at"`
+	UpdatedAt            time.Time             `json:"updated_at"`
+	HeightCm             sql.NullFloat64       `json:"height_cm"`
+	DateOfBirth          sql.NullTime          `json:"date_of_birth"`
+	Religion             sql.NullString        `json:"religion"`
+	BloodGroup           sql.NullString        `json:"blood_group"`
+	Hobbies              []string              `json:"hobbies"`
+	PresentAddress       sql.NullString        `json:"present_address"`
+	PermanentAddress     sql.NullString        `json:"permanent_address"`
+	Occupation           sql.NullString        `json:"occupation"`
+	Nid                  sql.NullString        `json:"nid"`
+	EmergencyPhone       sql.NullString        `json:"emergency_phone"`
+	Gender               string                `json:"gender"`
+	BudgetLevel          sql.NullString        `json:"budget_level"`
+	IsAiAllowed          bool                  `json:"is_ai_allowed"`
+	ProfilePictureUrl    sql.NullString        `json:"profile_picture_url"`
+	DietChartJson        pqtype.NullRawMessage `json:"diet_chart_json"`
+	IsAiFoodLogAllowed   bool                  `json:"is_ai_food_log_allowed"`
+	PendingDietChartJson pqtype.NullRawMessage `json:"pending_diet_chart_json"`
+	CreatedByAdminID     uuid.NullUUID         `json:"created_by_admin_id"`
+}
+
+type MemberFoodLog struct {
+	ID             int64                 `json:"id"`
+	MemberID       uuid.UUID             `json:"member_id"`
+	ImageUrl       string                `json:"image_url"`
+	DeviceModel    sql.NullString        `json:"device_model"`
+	CaptureTime    sql.NullTime          `json:"capture_time"`
+	AiResponseJson pqtype.NullRawMessage `json:"ai_response_json"`
+	LogDate        time.Time             `json:"log_date"`
+	CreatedAt      time.Time             `json:"created_at"`
 }
 
 type Message struct {
@@ -104,24 +157,52 @@ type PlanTemplate struct {
 	DefaultPrice float64   `json:"default_price"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+	BillingType  string    `json:"billing_type"`
+}
+
+type ProfilePictureUpdate struct {
+	ID            uuid.UUID `json:"id"`
+	MemberID      uuid.UUID `json:"member_id"`
+	UpdatedByRole string    `json:"updated_by_role"`
+	UpdatedByID   uuid.UUID `json:"updated_by_id"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type Setting struct {
 	Key       string          `json:"key"`
 	Value     json.RawMessage `json:"value"`
 	UpdatedAt time.Time       `json:"updated_at"`
+	AdminID   uuid.NullUUID   `json:"admin_id"`
 }
 
 type Subscription struct {
-	ID             uuid.UUID      `json:"id"`
-	MemberID       uuid.UUID      `json:"member_id"`
-	PlanTemplateID uuid.UUID      `json:"plan_template_id"`
-	StartDate      time.Time      `json:"start_date"`
-	EndDate        time.Time      `json:"end_date"`
-	FinalPrice     float64        `json:"final_price"`
-	Note           sql.NullString `json:"note"`
-	Status         string         `json:"status"`
-	CreatedAt      time.Time      `json:"created_at"`
+	ID                  uuid.UUID      `json:"id"`
+	MemberID            uuid.UUID      `json:"member_id"`
+	PlanTemplateID      uuid.UUID      `json:"plan_template_id"`
+	StartDate           time.Time      `json:"start_date"`
+	EndDate             time.Time      `json:"end_date"`
+	FinalPrice          float64        `json:"final_price"`
+	Note                sql.NullString `json:"note"`
+	Status              string         `json:"status"`
+	CreatedAt           time.Time      `json:"created_at"`
+	BillingType         string         `json:"billing_type"`
+	PrepaidDueDate      sql.NullTime   `json:"prepaid_due_date"`
+	PostpaidGraceBefore int32          `json:"postpaid_grace_before"`
+	PostpaidGraceAfter  int32          `json:"postpaid_grace_after"`
+}
+
+type SuperadminAiAuditLog struct {
+	ID               int64           `json:"id"`
+	MemberID         uuid.UUID       `json:"member_id"`
+	AdminID          uuid.UUID       `json:"admin_id"`
+	PromptType       string          `json:"prompt_type"`
+	PromptText       string          `json:"prompt_text"`
+	AiResponseJson   json.RawMessage `json:"ai_response_json"`
+	PromptTokens     int32           `json:"prompt_tokens"`
+	CompletionTokens int32           `json:"completion_tokens"`
+	TotalTokens      int32           `json:"total_tokens"`
+	EstimatedCost    float64         `json:"estimated_cost"`
+	CreatedAt        time.Time       `json:"created_at"`
 }
 
 type SystemLog struct {
@@ -133,6 +214,13 @@ type SystemLog struct {
 	Route     sql.NullString        `json:"route"`
 	Metadata  pqtype.NullRawMessage `json:"metadata"`
 	CreatedAt time.Time             `json:"created_at"`
+}
+
+type SystemSetting struct {
+	SettingKey   string        `json:"setting_key"`
+	SettingValue string        `json:"setting_value"`
+	UpdatedAt    time.Time     `json:"updated_at"`
+	AdminID      uuid.NullUUID `json:"admin_id"`
 }
 
 type WeightLog struct {

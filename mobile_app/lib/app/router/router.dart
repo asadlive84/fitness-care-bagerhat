@@ -15,11 +15,13 @@ import 'package:fitness_care_bagerhat/features/admin/settings/settings_screen.da
 import 'package:fitness_care_bagerhat/features/admin/shell/admin_shell.dart';
 import 'package:fitness_care_bagerhat/features/auth/change_password/change_password_screen.dart';
 import 'package:fitness_care_bagerhat/features/auth/login/login_screen.dart';
+import 'package:fitness_care_bagerhat/features/member/home/diet_chart_detail_screen.dart';
 import 'package:fitness_care_bagerhat/features/member/home/member_home_screen.dart';
 import 'package:fitness_care_bagerhat/features/member/logs/diet/diet_log_screen.dart';
 import 'package:fitness_care_bagerhat/features/member/logs/logs_hub_screen.dart';
 import 'package:fitness_care_bagerhat/features/member/logs/weight/weight_log_screen.dart';
 import 'package:fitness_care_bagerhat/features/member/logs/workout/workout_log_screen.dart';
+import 'package:fitness_care_bagerhat/features/member/food_log/food_log_screen.dart';
 import 'package:fitness_care_bagerhat/features/member/messages/member_messages_screen.dart';
 import 'package:fitness_care_bagerhat/features/member/payments/member_payments_screen.dart';
 import 'package:fitness_care_bagerhat/features/member/profile/member_profile_screen.dart';
@@ -150,6 +152,14 @@ GoRouter createRouter(Ref ref, Listenable listenable) {
                 builder: (context, state) => const MemberProfileScreen(),
               ),
               GoRoute(
+                path: 'diet-chart',
+                name: 'memberDietChart',
+                builder: (context, state) {
+                  final member = state.extra! as Member;
+                  return DietChartDetailScreen(member: member);
+                },
+              ),
+              GoRoute(
                 path: 'subscription',
                 name: 'memberSubscription',
                 builder: (context, state) => const MemberSubscriptionScreen(),
@@ -178,6 +188,11 @@ GoRouter createRouter(Ref ref, Listenable listenable) {
                     path: 'diet',
                     name: 'memberDietLog',
                     builder: (context, state) => const DietLogScreen(),
+                  ),
+                  GoRoute(
+                    path: 'food',
+                    name: 'memberFoodLog',
+                    builder: (context, state) => const FoodLogScreen(),
                   ),
                 ],
               ),

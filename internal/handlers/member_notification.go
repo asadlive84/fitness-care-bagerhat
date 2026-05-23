@@ -135,6 +135,6 @@ type settingAdapter struct {
 }
 
 func (a *settingAdapter) Upsert(ctx context.Context, key string, value json.RawMessage) error {
-	_, err := a.repo.Upsert(ctx, key, value)
+	_, err := a.repo.Upsert(ctx, key, value, nil)
 	return err
 }

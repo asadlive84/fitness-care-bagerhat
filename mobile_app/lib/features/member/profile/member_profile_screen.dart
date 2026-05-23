@@ -8,6 +8,7 @@ import 'package:fitness_care_bagerhat/core/widgets/gym_avatar.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_button.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_card.dart';
 import 'package:fitness_care_bagerhat/features/member/home/member_home_controller.dart';
+import 'package:fitness_care_bagerhat/core/settings/settings_repository.dart';
 import 'package:fitness_care_bagerhat/features/member/notifications/notification_repository.dart';
 import 'package:fitness_care_bagerhat/features/member/profile/edit_profile_screen.dart';
 import 'package:flutter/material.dart';
@@ -78,6 +79,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             _Header(
               name: member?.name ?? authState?.userName ?? 'Member',
               currentWeight: member?.currentWeight,
+              imageUrl: member?.profilePictureUrl != null && member!.profilePictureUrl!.isNotEmpty
+                  ? (member.profilePictureUrl!.startsWith('http')
+                      ? member.profilePictureUrl
+                      : '${ref.read(settingsRepositoryProvider).baseUrl}${member.profilePictureUrl}')
+                  : null,
             ),
             const SizedBox(height: AppSpacing.s32),
 
@@ -314,16 +320,18 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.name,
     this.currentWeight,
+    this.imageUrl,
   });
 
   final String name;
   final double? currentWeight;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        GymAvatar(name: name, size: 80),
+        GymAvatar(name: name, size: 80, imageUrl: imageUrl),
         const SizedBox(height: AppSpacing.s16),
         Text(name, style: AppText.titleLarge),
         if (currentWeight != null) ...[

@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	sqlcdb "github.com/asadlive84/fitness-care-bagerhat/internal/database/sqlc"
@@ -27,23 +28,30 @@ const memberSelectCols = `
 	id, name, phone, gender, goal, join_date,
 	current_weight, height_cm, date_of_birth, religion, blood_group,
 	hobbies, present_address, permanent_address, occupation, nid,
-	emergency_phone, status, must_change_password, created_at, updated_at`
+	emergency_phone, status, must_change_password, created_at, updated_at,
+	budget_level, is_ai_allowed, is_ai_food_log_allowed, profile_picture_url, diet_chart_json, pending_diet_chart_json`
 
 // scanMember scans a row produced by memberSelectCols into a *models.Member.
 func scanMember(scan func(dest ...interface{}) error) (*models.Member, error) {
 	var (
-		goal             sql.NullString
-		currentWeight    sql.NullFloat64
-		heightCm         sql.NullFloat64
-		dateOfBirth      sql.NullTime
-		religion         sql.NullString
-		bloodGroup       sql.NullString
-		hobbies          pq.StringArray
-		presentAddress   sql.NullString
-		permanentAddress sql.NullString
-		occupation       sql.NullString
-		nidVal           sql.NullString
-		emergencyPhone   sql.NullString
+		goal                 sql.NullString
+		currentWeight        sql.NullFloat64
+		heightCm             sql.NullFloat64
+		dateOfBirth          sql.NullTime
+		religion             sql.NullString
+		bloodGroup           sql.NullString
+		hobbies              pq.StringArray
+		presentAddress       sql.NullString
+		permanentAddress     sql.NullString
+		occupation           sql.NullString
+		nidVal               sql.NullString
+		emergencyPhone       sql.NullString
+		budgetLevel          sql.NullString
+		isAIAllowed          bool
+		isAIFoodLogAllowed   bool
+		profilePicUrl        sql.NullString
+		dietChartJson        []byte
+		pendingDietChartJson []byte
 	)
 	m := &models.Member{}
 	err := scan(
@@ -51,6 +59,7 @@ func scanMember(scan func(dest ...interface{}) error) (*models.Member, error) {
 		&currentWeight, &heightCm, &dateOfBirth, &religion, &bloodGroup,
 		&hobbies, &presentAddress, &permanentAddress, &occupation, &nidVal,
 		&emergencyPhone, &m.Status, &m.MustChangePassword, &m.CreatedAt, &m.UpdatedAt,
+		&budgetLevel, &isAIAllowed, &isAIFoodLogAllowed, &profilePicUrl, &dietChartJson, &pendingDietChartJson,
 	)
 	if err != nil {
 		return nil, err
@@ -91,6 +100,22 @@ func scanMember(scan func(dest ...interface{}) error) (*models.Member, error) {
 	if emergencyPhone.Valid {
 		m.EmergencyPhone = &emergencyPhone.String
 	}
+	if budgetLevel.Valid {
+		m.BudgetLevel = &budgetLevel.String
+	}
+	m.IsAIAllowed = isAIAllowed
+	m.IsAIFoodLogAllowed = isAIFoodLogAllowed
+	if profilePicUrl.Valid {
+		m.ProfilePictureURL = &profilePicUrl.String
+	}
+	if len(dietChartJson) > 0 {
+		raw := json.RawMessage(dietChartJson)
+		m.DietChartJSON = &raw
+	}
+	if len(pendingDietChartJson) > 0 {
+		raw := json.RawMessage(pendingDietChartJson)
+		m.PendingDietChartJSON = &raw
+	}
 	return m, nil
 }
 
@@ -105,17 +130,20 @@ func (r *MemberRepo) Create(ctx context.Context, m *models.Member, passwordHash 
 			id, name, phone, password_hash, gender, goal, join_date,
 			current_weight, height_cm, date_of_birth, religion, blood_group,
 			hobbies, present_address, permanent_address, occupation, nid,
-			emergency_phone, status, must_change_password
+			emergency_phone, status, must_change_password, created_by_admin_id,
+			is_ai_allowed, is_ai_food_log_allowed
 		) VALUES (
 			$1,$2,$3,$4,$5,$6,$7,
 			$8,$9,$10,$11,$12,
 			$13,$14,$15,$16,$17,
-			$18,$19,$20
+			$18,$19,$20,$21,
+			$22,$23
 		)`,
 		m.ID, m.Name, m.Phone, passwordHash, m.Gender, nullString(m.Goal), m.JoinDate,
 		nullFloat64(m.CurrentWeight), nullFloat64(m.HeightCm), dob, nullString(m.Religion), nullString(m.BloodGroup),
 		pq.Array(m.Hobbies), nullString(m.PresentAddress), nullString(m.PermanentAddress), nullString(m.Occupation), nullString(m.NID),
-		nullString(m.EmergencyPhone), m.Status, m.MustChangePassword,
+		nullString(m.EmergencyPhone), m.Status, m.MustChangePassword, nullUUID(m.CreatedByAdminID),
+		m.IsAIAllowed, m.IsAIFoodLogAllowed,
 	)
 	return mapErr(err)
 }
@@ -242,8 +270,8 @@ func (r *MemberRepo) List(ctx context.Context, f models.MemberFilter) ([]*models
 	return members, total, nil
 }
 
-func (r *MemberRepo) ListExpiringSoon(ctx context.Context, days int) ([]*models.Member, error) {
-	rows, err := r.q.ListMembersWithExpiringSoon(ctx, int32(days))
+func (r *MemberRepo) ListExpiringSoon(ctx context.Context, _ int) ([]*models.Member, error) {
+	rows, err := r.q.ListMembersWithExpiringSoon(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list expiring members: %w", err)
 	}
@@ -278,4 +306,8 @@ func (r *MemberRepo) Delete(ctx context.Context, id uuid.UUID) error {
 		}
 	}
 	return tx.Commit()
+}
+
+func (r *MemberRepo) InvalidateCache(ctx context.Context, id uuid.UUID, phone string) error {
+	return nil
 }

@@ -16,7 +16,7 @@ import (
 const createSubscription = `-- name: CreateSubscription :one
 INSERT INTO subscriptions (id, member_id, plan_template_id, start_date, end_date, final_price, note, status)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, member_id, plan_template_id, start_date, end_date, final_price, note, status, created_at
+RETURNING id, member_id, plan_template_id, start_date, end_date, final_price, note, status, created_at, billing_type, prepaid_due_date, postpaid_grace_before, postpaid_grace_after
 `
 
 type CreateSubscriptionParams struct {
@@ -52,12 +52,16 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		&i.Note,
 		&i.Status,
 		&i.CreatedAt,
+		&i.BillingType,
+		&i.PrepaidDueDate,
+		&i.PostpaidGraceBefore,
+		&i.PostpaidGraceAfter,
 	)
 	return i, err
 }
 
 const getActiveSubscriptionByMemberID = `-- name: GetActiveSubscriptionByMemberID :one
-SELECT id, member_id, plan_template_id, start_date, end_date, final_price, note, status, created_at FROM subscriptions
+SELECT id, member_id, plan_template_id, start_date, end_date, final_price, note, status, created_at, billing_type, prepaid_due_date, postpaid_grace_before, postpaid_grace_after FROM subscriptions
 WHERE member_id = $1
   AND status    = 'active'
 ORDER BY created_at DESC
@@ -77,36 +81,61 @@ func (q *Queries) GetActiveSubscriptionByMemberID(ctx context.Context, memberID 
 		&i.Note,
 		&i.Status,
 		&i.CreatedAt,
+		&i.BillingType,
+		&i.PrepaidDueDate,
+		&i.PostpaidGraceBefore,
+		&i.PostpaidGraceAfter,
 	)
 	return i, err
 }
 
 const listExpiringSubscriptions = `-- name: ListExpiringSubscriptions :many
-SELECT s.id, s.member_id, s.plan_template_id, s.start_date, s.end_date, s.final_price, s.note, s.status, s.created_at, m.name AS member_name
+WITH member_nudge_days AS (
+    SELECT m.id AS member_id,
+           COALESCE(
+               (
+                   SELECT (s.value->>0)::int
+                   FROM settings s
+                   WHERE s.key = 'nudge_days'
+                     AND (s.admin_id = m.created_by_admin_id OR s.admin_id IS NULL)
+                   ORDER BY s.admin_id DESC NULLS LAST
+                   LIMIT 1
+               ),
+               7
+           ) AS days
+    FROM members m
+)
+SELECT s.id, s.member_id, s.plan_template_id, s.start_date, s.end_date, s.final_price, s.note, s.status, s.created_at, s.billing_type, s.prepaid_due_date, s.postpaid_grace_before, s.postpaid_grace_after, m.name AS member_name, m.created_by_admin_id
 FROM subscriptions s
 JOIN members m ON m.id = s.member_id
+JOIN member_nudge_days mnd ON mnd.member_id = m.id
 WHERE s.status   = 'active'
   AND s.end_date >= CURRENT_DATE
-  AND s.end_date <= CURRENT_DATE + ($1::int * INTERVAL '1 day')
+  AND s.end_date <= CURRENT_DATE + (mnd.days * INTERVAL '1 day')
 ORDER BY s.end_date ASC
 `
 
 type ListExpiringSubscriptionsRow struct {
-	ID             uuid.UUID      `json:"id"`
-	MemberID       uuid.UUID      `json:"member_id"`
-	PlanTemplateID uuid.UUID      `json:"plan_template_id"`
-	StartDate      time.Time      `json:"start_date"`
-	EndDate        time.Time      `json:"end_date"`
-	FinalPrice     float64        `json:"final_price"`
-	Note           sql.NullString `json:"note"`
-	Status         string         `json:"status"`
-	CreatedAt      time.Time      `json:"created_at"`
-	MemberName     string         `json:"member_name"`
+	ID                  uuid.UUID      `json:"id"`
+	MemberID            uuid.UUID      `json:"member_id"`
+	PlanTemplateID      uuid.UUID      `json:"plan_template_id"`
+	StartDate           time.Time      `json:"start_date"`
+	EndDate             time.Time      `json:"end_date"`
+	FinalPrice          float64        `json:"final_price"`
+	Note                sql.NullString `json:"note"`
+	Status              string         `json:"status"`
+	CreatedAt           time.Time      `json:"created_at"`
+	BillingType         string         `json:"billing_type"`
+	PrepaidDueDate      sql.NullTime   `json:"prepaid_due_date"`
+	PostpaidGraceBefore int32          `json:"postpaid_grace_before"`
+	PostpaidGraceAfter  int32          `json:"postpaid_grace_after"`
+	MemberName          string         `json:"member_name"`
+	CreatedByAdminID    uuid.NullUUID  `json:"created_by_admin_id"`
 }
 
-// Used by the renewal reminder scheduler. Returns active subs ending within @days days.
-func (q *Queries) ListExpiringSubscriptions(ctx context.Context, days int32) ([]ListExpiringSubscriptionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listExpiringSubscriptions, days)
+// Used by the renewal reminder scheduler. Returns active subs ending within their gym's nudge days.
+func (q *Queries) ListExpiringSubscriptions(ctx context.Context) ([]ListExpiringSubscriptionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listExpiringSubscriptions)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +153,12 @@ func (q *Queries) ListExpiringSubscriptions(ctx context.Context, days int32) ([]
 			&i.Note,
 			&i.Status,
 			&i.CreatedAt,
+			&i.BillingType,
+			&i.PrepaidDueDate,
+			&i.PostpaidGraceBefore,
+			&i.PostpaidGraceAfter,
 			&i.MemberName,
+			&i.CreatedByAdminID,
 		); err != nil {
 			return nil, err
 		}
@@ -140,7 +174,7 @@ func (q *Queries) ListExpiringSubscriptions(ctx context.Context, days int32) ([]
 }
 
 const listSubscriptionsByMemberID = `-- name: ListSubscriptionsByMemberID :many
-SELECT id, member_id, plan_template_id, start_date, end_date, final_price, note, status, created_at FROM subscriptions
+SELECT id, member_id, plan_template_id, start_date, end_date, final_price, note, status, created_at, billing_type, prepaid_due_date, postpaid_grace_before, postpaid_grace_after FROM subscriptions
 WHERE member_id = $1
 ORDER BY created_at DESC
 `
@@ -164,6 +198,10 @@ func (q *Queries) ListSubscriptionsByMemberID(ctx context.Context, memberID uuid
 			&i.Note,
 			&i.Status,
 			&i.CreatedAt,
+			&i.BillingType,
+			&i.PrepaidDueDate,
+			&i.PostpaidGraceBefore,
+			&i.PostpaidGraceAfter,
 		); err != nil {
 			return nil, err
 		}
@@ -199,7 +237,7 @@ SET final_price = $1,
     note        = $4
 WHERE member_id = $5
   AND status    = 'active'
-RETURNING id, member_id, plan_template_id, start_date, end_date, final_price, note, status, created_at
+RETURNING id, member_id, plan_template_id, start_date, end_date, final_price, note, status, created_at, billing_type, prepaid_due_date, postpaid_grace_before, postpaid_grace_after
 `
 
 type UpdateActiveSubscriptionParams struct {
@@ -230,6 +268,10 @@ func (q *Queries) UpdateActiveSubscription(ctx context.Context, arg UpdateActive
 		&i.Note,
 		&i.Status,
 		&i.CreatedAt,
+		&i.BillingType,
+		&i.PrepaidDueDate,
+		&i.PostpaidGraceBefore,
+		&i.PostpaidGraceAfter,
 	)
 	return i, err
 }
