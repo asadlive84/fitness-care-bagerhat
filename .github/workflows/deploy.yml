@@ -4,12 +4,6 @@ on:
   push:
     branches: [main]
 
-env:
-  AWS_REGION:     ap-southeast-1
-  ECR_REGISTRY:   ${{ secrets.ECR_REGISTRY }}
-  IMAGE_APP:      ${{ secrets.ECR_REGISTRY }}/fitnesscare-app
-  IMAGE_FRONT:    ${{ secrets.ECR_REGISTRY }}/fitnesscare-frontend
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -25,7 +19,7 @@ jobs:
         with:
           aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ap-southeast-1
+          aws-region:            ${{ secrets.AWS_REGION }}
 
       # ── 3. Login to Amazon ECR ─────────────────────────────────────────────
       - name: Login to Amazon ECR
@@ -38,8 +32,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.IMAGE_APP }}:latest
-            ${{ env.IMAGE_APP }}:${{ github.sha }}
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/fitnesscare-app:latest
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/fitnesscare-app:${{ github.sha }}
 
       # ── 5. Build & push Frontend image ────────────────────────────────────
       - name: Build & push Frontend image
@@ -48,32 +42,45 @@ jobs:
           context: ./frontend
           push: true
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_API_URL=http://${{ secrets.SERVER_IP }}:9000
           tags: |
-            ${{ env.IMAGE_FRONT }}:latest
-            ${{ env.IMAGE_FRONT }}:${{ github.sha }}
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/fitnesscare-frontend:latest
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/fitnesscare-frontend:${{ github.sha }}
 
       # ── 6. Deploy on EC2 ──────────────────────────────────────────────────
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host:     ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          host:     ${{ secrets.SERVER_IP }}
+          username: ubuntu
           key:      ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
-            cd ~/fitnesscare
 
-            # Pull latest .env from S3
-            aws s3 cp s3://${{ secrets.S3_CONFIG_BUCKET }}/.env .env
+            ECR_REGISTRY="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com"
+
+            # Write .env from GitHub Secrets (no S3 needed)
+            cat > ~/fitnesscare/.env <<'ENVEOF'
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            SUPERADMIN_EMAIL=${{ secrets.SEED_USER_EMAIL }}
+            SUPERADMIN_PASSWORD=${{ secrets.SEED_USER_PASSWORD }}
+            ECR_REGISTRY=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+            CORS_ALLOWED_ORIGINS=http://${{ secrets.SERVER_IP }}
+            ENVEOF
+
+            # Pull latest migrations from repo
+            cd ~/fitnesscare
+            git pull origin main
 
             # Login to ECR
-            aws ecr get-login-password --region ap-southeast-1 | \
-              docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | \
+              docker login --username AWS --password-stdin ${ECR_REGISTRY}
 
             # Pull latest images
-            docker pull ${{ env.IMAGE_APP }}:latest
-            docker pull ${{ env.IMAGE_FRONT }}:latest
+            docker pull ${ECR_REGISTRY}/fitnesscare-app:latest
+            docker pull ${ECR_REGISTRY}/fitnesscare-frontend:latest
 
             # Restart stack
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
