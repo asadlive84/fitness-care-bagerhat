@@ -38,5 +38,6 @@ abstract final class Routes {
       '/member/messages/$conversationId';
 
   // ─── Misc ──────────────────────────────────────────────
+  static const splash = '/splash';
   static const developer = '/developer';
 }

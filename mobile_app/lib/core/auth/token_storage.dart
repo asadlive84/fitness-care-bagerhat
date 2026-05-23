@@ -1,19 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Provides the singleton [TokenStorage] instance.
 final tokenStorageProvider = Provider<TokenStorage>((ref) {
   return TokenStorage();
 });
 
-/// Secure storage wrapper for authentication tokens.
-///
-/// Stores access and refresh JWT tokens in platform-secure storage
-/// (Keychain on iOS, EncryptedSharedPreferences on Android).
-///
-/// See also:
-/// - [TokenInterceptor] which reads tokens for request injection
-/// - [AuthRepository] which writes tokens after login/refresh
+// Uses SharedPreferences instead of FlutterSecureStorage to avoid
+// Android Keystore silent hang on Samsung/MIUI devices.
 class TokenStorage {
   static const _keyAccessToken = 'access_token';
   static const _keyRefreshToken = 'refresh_token';
@@ -21,34 +14,31 @@ class TokenStorage {
   static const _keyUserRole = 'user_role';
   static const _keyUserName = 'user_name';
 
-  final FlutterSecureStorage _storage;
-
-  TokenStorage({FlutterSecureStorage? storage})
-      : _storage = storage ??
-            const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
-            );
+  Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
   // ─── Tokens ────────────────────────────────────────────
 
-  /// Saves both access and refresh tokens atomically.
   Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
   }) async {
+    final prefs = await _prefs;
     await Future.wait([
-      _storage.write(key: _keyAccessToken, value: accessToken),
-      _storage.write(key: _keyRefreshToken, value: refreshToken),
+      prefs.setString(_keyAccessToken, accessToken),
+      prefs.setString(_keyRefreshToken, refreshToken),
     ]);
   }
 
-  /// Retrieves the current access token, or null if not logged in.
-  Future<String?> getAccessToken() => _storage.read(key: _keyAccessToken);
+  Future<String?> getAccessToken() async {
+    final prefs = await _prefs;
+    return prefs.getString(_keyAccessToken);
+  }
 
-  /// Retrieves the current refresh token, or null if not logged in.
-  Future<String?> getRefreshToken() => _storage.read(key: _keyRefreshToken);
+  Future<String?> getRefreshToken() async {
+    final prefs = await _prefs;
+    return prefs.getString(_keyRefreshToken);
+  }
 
-  /// Returns true if tokens exist (does not validate expiry).
   Future<bool> hasTokens() async {
     final token = await getAccessToken();
     return token != null && token.isNotEmpty;
@@ -56,30 +46,44 @@ class TokenStorage {
 
   // ─── User Info ─────────────────────────────────────────
 
-  /// Saves basic user info alongside tokens.
   Future<void> saveUserInfo({
     required String userId,
     required String role,
     required String name,
   }) async {
+    final prefs = await _prefs;
     await Future.wait([
-      _storage.write(key: _keyUserId, value: userId),
-      _storage.write(key: _keyUserRole, value: role),
-      _storage.write(key: _keyUserName, value: name),
+      prefs.setString(_keyUserId, userId),
+      prefs.setString(_keyUserRole, role),
+      prefs.setString(_keyUserName, name),
     ]);
   }
 
-  /// Gets the stored user ID.
-  Future<String?> getUserId() => _storage.read(key: _keyUserId);
+  Future<String?> getUserId() async {
+    final prefs = await _prefs;
+    return prefs.getString(_keyUserId);
+  }
 
-  /// Gets the stored user role ('admin' or 'member').
-  Future<String?> getUserRole() => _storage.read(key: _keyUserRole);
+  Future<String?> getUserRole() async {
+    final prefs = await _prefs;
+    return prefs.getString(_keyUserRole);
+  }
 
-  /// Gets the stored user display name.
-  Future<String?> getUserName() => _storage.read(key: _keyUserName);
+  Future<String?> getUserName() async {
+    final prefs = await _prefs;
+    return prefs.getString(_keyUserName);
+  }
 
   // ─── Clear ─────────────────────────────────────────────
 
-  /// Clears all stored tokens and user info (logout).
-  Future<void> clearAll() => _storage.deleteAll();
+  Future<void> clearAll() async {
+    final prefs = await _prefs;
+    await Future.wait([
+      prefs.remove(_keyAccessToken),
+      prefs.remove(_keyRefreshToken),
+      prefs.remove(_keyUserId),
+      prefs.remove(_keyUserRole),
+      prefs.remove(_keyUserName),
+    ]);
+  }
 }

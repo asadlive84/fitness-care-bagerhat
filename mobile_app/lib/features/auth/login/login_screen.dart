@@ -7,7 +7,6 @@ import 'package:fitness_care_bagerhat/core/widgets/gym_button.dart';
 import 'package:fitness_care_bagerhat/core/widgets/gym_text_field.dart';
 import 'package:fitness_care_bagerhat/features/auth/login/login_controller.dart';
 import 'package:fitness_care_bagerhat/core/api/api_client.dart';
-import 'package:fitness_care_bagerhat/core/settings/settings_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -171,10 +170,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                           ),
                                         ],
                                       ),
-                                      IconButton(
-                                        icon: const Icon(Icons.settings_input_component, color: AppColors.primaryLight),
-                                        onPressed: () => _showServerSettings(context),
-                                      ),
                                     ],
                                   ),
                                   const SizedBox(height: AppSpacing.s12),
@@ -258,54 +253,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 
-  void _showServerSettings(BuildContext context) {
-    final settings = ref.read(settingsRepositoryProvider);
-    final controller = TextEditingController(text: settings.baseUrl);
-
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Server Settings'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Enter the backend API URL. For Android Emulators, use http://10.0.2.2:9000',
-              style: TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'Base URL',
-                hintText: 'http://10.0.2.2:9000',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await settings.setBaseUrl(controller.text.trim());
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('API URL updated. Refreshing...')),
-                );
-                ref.invalidate(apiClientProvider);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _RoleSelector extends StatelessWidget {
@@ -383,41 +330,29 @@ class _RoleButton extends StatelessWidget {
 class _ServerStatusIndicator extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final baseUrl = ref.watch(settingsRepositoryProvider).baseUrl;
-    
     return FutureBuilder(
       future: ref.read(apiClientProvider).get('/healthz'),
       builder: (context, snapshot) {
         final isConnected = snapshot.hasData && snapshot.data?.statusCode == 200;
         final isChecking = snapshot.connectionState == ConnectionState.waiting;
 
+        final color = isChecking
+            ? Colors.orange
+            : (isConnected ? Colors.green : Colors.red);
+
         return Row(
           children: [
             Container(
               width: 8,
               height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isChecking 
-                  ? Colors.orange 
-                  : (isConnected ? Colors.green : Colors.red),
-              ),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: color),
             ),
             const SizedBox(width: 8),
             Text(
-              isChecking 
-                ? 'Checking connection...' 
-                : (isConnected ? 'Server Connected' : 'Server Disconnected'),
-              style: AppText.labelSmall.copyWith(
-                color: isChecking 
-                  ? Colors.orange 
-                  : (isConnected ? Colors.green : Colors.red),
-              ),
-            ),
-            const Spacer(),
-            Text(
-              baseUrl.replaceAll('http://', ''),
-              style: AppText.labelSmall.copyWith(color: AppColors.textHint),
+              isChecking
+                  ? 'Checking connection...'
+                  : (isConnected ? 'Server Connected' : 'Server Disconnected'),
+              style: AppText.labelSmall.copyWith(color: color),
             ),
           ],
         );

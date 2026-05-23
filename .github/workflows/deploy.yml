@@ -42,7 +42,7 @@ jobs:
           context: ./frontend
           push: true
           build-args: |
-            NEXT_PUBLIC_API_URL=http://${{ secrets.SERVER_IP }}:9000
+            NEXT_PUBLIC_API_URL=https://fitnesscare.pocketguard.store
           tags: |
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/fitnesscare-frontend:latest
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/fitnesscare-frontend:${{ github.sha }}
@@ -68,7 +68,7 @@ jobs:
             SUPERADMIN_EMAIL=${{ secrets.SEED_USER_EMAIL }}
             SUPERADMIN_PASSWORD=${{ secrets.SEED_USER_PASSWORD }}
             ECR_REGISTRY=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-            CORS_ALLOWED_ORIGINS=http://${{ secrets.SERVER_IP }}
+            CORS_ALLOWED_ORIGINS=https://fitnesscare.pocketguard.store
             ENVEOF
 
             # Pull latest migrations from repo

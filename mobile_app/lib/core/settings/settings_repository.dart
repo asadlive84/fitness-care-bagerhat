@@ -15,7 +15,7 @@ class SettingsRepository {
   String get baseUrl {
     return _prefs.getString(_baseUrlKey) ?? 
            dotenv.env['API_BASE_URL'] ?? 
-           'http://10.0.2.2:9000';
+           'https://fitnesscare.pocketguard.store';
   }
 
   Future<void> setBaseUrl(String url) async {

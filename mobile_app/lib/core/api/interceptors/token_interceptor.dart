@@ -29,6 +29,10 @@ class TokenInterceptor extends QueuedInterceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    // Skip token injection for auth endpoints to avoid unnecessary storage reads
+    if (options.path.contains('auth/')) {
+      return handler.next(options);
+    }
     final token = await _tokenStorage.getAccessToken();
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';

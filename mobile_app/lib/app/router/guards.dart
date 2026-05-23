@@ -13,7 +13,12 @@ import 'package:go_router/go_router.dart';
 /// - [Routes] for path constants
 String? authGuard(BuildContext context, GoRouterState state, Ref ref) {
   final authState = ref.read(authProvider).valueOrNull;
-  final isLoginRoute = state.matchedLocation == '/login';
+  final location = state.matchedLocation;
+  final isLoginRoute = location == '/login';
+  final isSplashRoute = location == '/splash';
+
+  // Never redirect away from splash — it navigates itself
+  if (isSplashRoute) return null;
 
   if (authState == null || authState.status == AuthStatus.unknown) {
     return null; // Still loading
@@ -24,9 +29,7 @@ String? authGuard(BuildContext context, GoRouterState state, Ref ref) {
   }
 
   if (authState.status == AuthStatus.mustChangePassword) {
-    return state.matchedLocation == '/change-password'
-        ? null
-        : '/change-password';
+    return location == '/change-password' ? null : '/change-password';
   }
 
   // Authenticated — redirect away from login screen only.
@@ -36,7 +39,7 @@ String? authGuard(BuildContext context, GoRouterState state, Ref ref) {
   }
 
   // Role-based access control
-  final path = state.matchedLocation;
+  final path = location;
   if (authState.isAdmin && path.startsWith('/member')) {
     return '/admin';
   }

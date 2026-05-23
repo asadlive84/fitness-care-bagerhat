@@ -28,6 +28,7 @@ import 'package:fitness_care_bagerhat/features/member/profile/member_profile_scr
 import 'package:fitness_care_bagerhat/features/member/shell/member_shell.dart';
 import 'package:fitness_care_bagerhat/features/member/subscription/member_subscription_screen.dart';
 import 'package:fitness_care_bagerhat/features/developer/developer_screen.dart';
+import 'package:fitness_care_bagerhat/features/splash/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -40,11 +41,18 @@ final routerProvider = Provider<GoRouter>((ref) {
 
 GoRouter createRouter(Ref ref, Listenable listenable) {
   return GoRouter(
-    initialLocation: Routes.login,
+    initialLocation: Routes.splash,
     debugLogDiagnostics: true,
     refreshListenable: listenable,
     redirect: (context, state) => authGuard(context, state, ref),
     routes: [
+      // ─── Splash ──────────────────────────────────────────
+      GoRoute(
+        path: Routes.splash,
+        name: 'splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
+
       // ─── Auth ────────────────────────────────────────────
       GoRoute(
         path: Routes.login,

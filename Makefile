@@ -114,3 +114,12 @@ mobile:
 ## help: list available make targets
 help:
 	@grep -E '^##' Makefile | sed 's/## //'
+
+apk:
+	cd mobile_app && flutter build apk --release
+	cp mobile_app/build/app/outputs/flutter-apk/app-release.apk fitnessCareBagerhat.apk
+	@echo "APK ready → fitnessCareBagerhat.apk"
+
+
+mobile_app:
+	flutter run -d emulator-5554;
