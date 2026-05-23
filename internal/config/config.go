@@ -29,8 +29,11 @@ type SuperAdminConfig struct {
 }
 
 type UploadConfig struct {
-	Dir        string
-	MaxSizeMB  int64
+	Dir       string
+	MaxSizeMB int64
+	S3Bucket  string
+	S3Region  string
+	S3BaseURL string // public base URL for uploaded files
 }
 
 type AIConfig struct {
@@ -136,6 +139,9 @@ func Load() (*Config, error) {
 		Upload: UploadConfig{
 			Dir:       viper.GetString("UPLOAD_DIR"),
 			MaxSizeMB: viper.GetInt64("UPLOAD_MAX_SIZE_MB"),
+			S3Bucket:  viper.GetString("S3_BUCKET"),
+			S3Region:  viper.GetString("S3_REGION"),
+			S3BaseURL: viper.GetString("S3_BASE_URL"),
 		},
 		AI: AIConfig{
 			TextProvider:   viper.GetString("AI_TEXT_PROVIDER"),

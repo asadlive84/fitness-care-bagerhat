@@ -1,11 +1,11 @@
-name: Deploy to AWS
+name: Deploy to Production
 
 on:
   push:
     branches: [main]
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,17 +23,18 @@ jobs:
 
       # ── 3. Login to Amazon ECR ─────────────────────────────────────────────
       - name: Login to Amazon ECR
+        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ── 4. Build & push API image ─────────────────────────────────────────
+      # ── 4. Build & push API image ──────────────────────────────────────────
       - name: Build & push API image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: |
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/fitnesscare-app:latest
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/fitnesscare-app:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/fitnesscare-app:latest
+            ${{ steps.login-ecr.outputs.registry }}/fitnesscare-app:${{ github.sha }}
 
       # ── 5. Build & push Frontend image ────────────────────────────────────
       - name: Build & push Frontend image
@@ -44,47 +45,71 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=https://fitnesscare.pocketguard.store
           tags: |
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/fitnesscare-frontend:latest
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/fitnesscare-frontend:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/fitnesscare-frontend:latest
+            ${{ steps.login-ecr.outputs.registry }}/fitnesscare-frontend:${{ github.sha }}
 
       # ── 6. Deploy on EC2 ──────────────────────────────────────────────────
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          AWS_REGION:   ${{ secrets.AWS_REGION }}
+          DB_PASSWORD:           ${{ secrets.DB_PASSWORD }}
+          REDIS_PASSWORD:        ${{ secrets.REDIS_PASSWORD }}
+          JWT_ACCESS_SECRET:     ${{ secrets.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET:    ${{ secrets.JWT_REFRESH_SECRET }}
+          SUPERADMIN_EMAIL:      ${{ secrets.SEED_USER_EMAIL }}
+          SUPERADMIN_PASSWORD:   ${{ secrets.SEED_USER_PASSWORD }}
+          FCM_PROJECT_ID:        ${{ secrets.FCM_PROJECT_ID }}
+          FIREBASE_CREDENTIALS_JSON: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
+          S3_BUCKET:             ${{ secrets.S3_BUCKET }}
+          S3_REGION:             ${{ secrets.AWS_REGION }}
+          S3_BASE_URL:           ${{ secrets.S3_BASE_URL }}
         with:
           host:     ${{ secrets.SERVER_IP }}
           username: ubuntu
           key:      ${{ secrets.EC2_SSH_KEY }}
+          envs: ECR_REGISTRY,AWS_REGION,DB_PASSWORD,REDIS_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,SUPERADMIN_EMAIL,SUPERADMIN_PASSWORD,FCM_PROJECT_ID,FIREBASE_CREDENTIALS_JSON,S3_BUCKET,S3_REGION,S3_BASE_URL
           script: |
             set -e
-
-            ECR_REGISTRY="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com"
-
-            # Write .env from GitHub Secrets (no S3 needed)
-            cat > ~/fitnesscare/.env <<'ENVEOF'
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-            JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}
-            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
-            SUPERADMIN_EMAIL=${{ secrets.SEED_USER_EMAIL }}
-            SUPERADMIN_PASSWORD=${{ secrets.SEED_USER_PASSWORD }}
-            ECR_REGISTRY=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-            CORS_ALLOWED_ORIGINS=https://fitnesscare.pocketguard.store
-            ENVEOF
-
-            # Pull latest migrations from repo
             cd ~/fitnesscare
+
+            # Pull latest migrations & compose files from repo
             git pull origin main
 
-            # Login to ECR
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | \
+            # Write .env (overwrite every deploy so secrets stay in sync)
+            cat > .env << EOF
+            ECR_REGISTRY=${ECR_REGISTRY}
+            DB_PASSWORD=${DB_PASSWORD}
+            REDIS_PASSWORD=${REDIS_PASSWORD}
+            JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+            JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+            SUPERADMIN_EMAIL=${SUPERADMIN_EMAIL}
+            SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD}
+            FCM_PROJECT_ID=${FCM_PROJECT_ID}
+            FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDENTIALS_JSON}
+            CORS_ALLOWED_ORIGINS=https://fitnesscare.pocketguard.store
+            S3_BUCKET=${S3_BUCKET}
+            S3_REGION=${S3_REGION}
+            S3_BASE_URL=${S3_BASE_URL}
+            APP_ENV=production
+            APP_TIMEZONE=Asia/Dhaka
+            EOF
+
+            # Authenticate Docker with ECR
+            aws ecr get-login-password --region ${AWS_REGION} | \
               docker login --username AWS --password-stdin ${ECR_REGISTRY}
 
             # Pull latest images
             docker pull ${ECR_REGISTRY}/fitnesscare-app:latest
             docker pull ${ECR_REGISTRY}/fitnesscare-frontend:latest
 
-            # Restart stack
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            # Restart stack — force-recreate so new images are always used
+            docker compose -f docker-compose.prod.yml up -d \
+              --remove-orphans \
+              --force-recreate
 
-            # Clean up old images
+            # Clean up old dangling images
             docker image prune -f
+
+            echo "✅ Deploy complete — $(date)"
