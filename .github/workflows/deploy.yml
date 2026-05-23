@@ -65,11 +65,13 @@ jobs:
           S3_BUCKET:             ${{ secrets.S3_BUCKET }}
           S3_REGION:             ${{ secrets.AWS_REGION }}
           S3_BASE_URL:           ${{ secrets.S3_BASE_URL }}
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         with:
           host:     ${{ secrets.SERVER_IP }}
           username: ubuntu
           key:      ${{ secrets.EC2_SSH_KEY }}
-          envs: ECR_REGISTRY,AWS_REGION,DB_PASSWORD,REDIS_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,SUPERADMIN_EMAIL,SUPERADMIN_PASSWORD,FCM_PROJECT_ID,FIREBASE_CREDENTIALS_JSON,S3_BUCKET,S3_REGION,S3_BASE_URL
+          envs: ECR_REGISTRY,AWS_REGION,DB_PASSWORD,REDIS_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,SUPERADMIN_EMAIL,SUPERADMIN_PASSWORD,FCM_PROJECT_ID,FIREBASE_CREDENTIALS_JSON,S3_BUCKET,S3_REGION,S3_BASE_URL,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
           script: |
             set -e
             cd ~/fitnesscare
@@ -92,6 +94,8 @@ jobs:
             S3_BUCKET=${S3_BUCKET}
             S3_REGION=${S3_REGION}
             S3_BASE_URL=${S3_BASE_URL}
+            AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+            AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
             APP_ENV=production
             APP_TIMEZONE=Asia/Dhaka
             EOF
