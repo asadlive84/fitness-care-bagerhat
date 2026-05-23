@@ -63,7 +63,8 @@ jobs:
             cat > ~/fitnesscare/.env <<'ENVEOF'
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}
+            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
             SUPERADMIN_EMAIL=${{ secrets.SEED_USER_EMAIL }}
             SUPERADMIN_PASSWORD=${{ secrets.SEED_USER_PASSWORD }}
             ECR_REGISTRY=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
