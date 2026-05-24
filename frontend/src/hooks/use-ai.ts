@@ -7,12 +7,20 @@ const ADMIN = '/api/v1/admin'
 
 // ── Diet chart (admin → member) ───────────────────────────────────────────────
 
+export interface GenerateDietChartParams {
+  gym_time?: string
+  location?: string
+  max_budget_bdt?: string
+  language?: string
+}
+
 export function useGenerateDietChart(memberId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (params: GenerateDietChartParams = {}) => {
       const { data } = await api.post<ApiResponse<unknown>>(
         `${ADMIN}/members/${memberId}/diet-chart`,
+        { language: 'bn', ...params },
       )
       return data.data
     },

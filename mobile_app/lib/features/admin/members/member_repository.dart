@@ -238,8 +238,22 @@ class MemberRepository {
     return apiResponse.data!;
   }
 
-  Future<dynamic> generateDietChart(String id, {String language = 'en'}) async {
-    final response = await _apiClient.post('/api/v1/admin/members/$id/diet-chart?language=$language');
+  Future<dynamic> generateDietChart(
+    String id, {
+    String language = 'bn',
+    String gymTime = '',
+    String location = '',
+    String maxBudgetBdt = '',
+  }) async {
+    final response = await _apiClient.post(
+      '/api/v1/admin/members/$id/diet-chart',
+      data: {
+        'language': language,
+        if (gymTime.isNotEmpty) 'gym_time': gymTime,
+        if (location.isNotEmpty) 'location': location,
+        if (maxBudgetBdt.isNotEmpty) 'max_budget_bdt': maxBudgetBdt,
+      },
+    );
     final apiResponse = ApiResponse.fromJson(
       response.data as Map<String, dynamic>,
       (json) => json,

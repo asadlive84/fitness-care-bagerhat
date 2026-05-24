@@ -30,44 +30,71 @@ func NewAIService(repo *postgres.AIRepo, cfg config.AIConfig, log *slog.Logger) 
 	}
 }
 
-// SeedDefaultPrompts seeds fallback prompts and model settings globally on first startup if they do not exist.
+// SeedDefaultPrompts always upserts the global default prompts so prompt
+// changes in code are applied on the next server restart.
 func (s *AIService) SeedDefaultPrompts(ctx context.Context) error {
 	defaultPrompts := map[string]string{
-		"diet_generation_prompt": `You are an expert nutritionist. Generate a personalized, daily diet plan for the user in JSON format.
-The JSON must strictly conform to the following schema:
+		"diet_generation_prompt": `Act as an expert Clinical Nutritionist and Fitness Coach. Your task is to generate a highly detailed, personalized diet chart based on the customer's personal profile (Name, Gender, Age, Weight), goals, specific GYM TIME, and a STRICT Max Daily Budget.
+
+Every single food item must be fully organic/natural (strictly NO processed food). The final output MUST be strictly in JSON format with no additional conversational text or markdown formatting outside the JSON block.
+
+Key Requirements:
+1. STRICT BUDGET LIMIT: You are provided with a "Max Daily Budget". The sum of all item prices (total_cost) MUST be strictly less than or equal to this limit. You must creatively adjust food quantities or select cheaper organic alternatives to ensure the budget is NEVER exceeded.
+2. Dynamic Calorie Calculation: Use the provided Age, Gender, and Weight to estimate the optimal daily target calories and macros for the user's specific goal.
+3. Pricing in English: All price fields must be written in English numbers and text (e.g., "15 BDT", "40-50 BDT").
+4. Dynamic Meal Timing: Adjust the ideal_time for the "Pre-Workout" (1-1.5 hours before gym) and "Post-Workout" (within 45 mins after gym) meals based on the provided "Gym Time". Adjust the rest of the day's meals around this schedule.
+5. Item Details & Preparation: Explicitly break down what each food is made of and step-by-step instructions on how to prepare it safely.
+6. Bottom Totals: Include total_calories and total_cost at the very end of the JSON object as simple integers.
+
+Use the exact JSON structure below:
 {
-  "daily_calories": 2000,
-  "macros": {
-    "protein": 150,
-    "carbs": 200,
-    "fats": 65
+  "customer_profile": {
+    "name": "Customer Name",
+    "gender": "Gender",
+    "age": 0,
+    "weight_kg": 0
   },
-  "meals": [
+  "target_summary": "A personalized summary addressing the customer by name, explaining their calorie targets, gym time, and how the diet fits strictly within their budget limit.",
+  "daily_targets": {
+    "target_calories": 0,
+    "protein_g": 0,
+    "carbs_g": 0,
+    "fat_g": 0
+  },
+  "detailed_diet_chart": [
     {
-      "name": "Breakfast",
-      "time": "08:30 AM",
-      "calories": 500,
-      "protein": 35,
-      "carbs": 55,
-      "fats": 15,
-      "items": [
-        "3 egg whites and 1 whole egg",
-        "1 cup cooked oatmeal",
-        "1 medium banana"
-      ]
+      "meal_name": "Name of the meal",
+      "ideal_time": "Suggested time range",
+      "estimated_meal_cost_range_bdt": "e.g., 50-60 BDT",
+      "foods": [
+        {
+          "item_name": "Name of the food item",
+          "quantity": "Amount/Serving size",
+          "estimated_price": "Single item price in English (e.g., 20 BDT)",
+          "price_range": "Price range in English (e.g., 15-25 BDT)",
+          "ingredients_and_nature": "What it is made of and its organic source details",
+          "preparation_steps": "Detailed step-by-step instructions",
+          "nutritional_benefit": "Why this is included for the customer's goal"
+        }
+      ],
+      "estimated_meal_calories": 0
     }
-  ]
+  ],
+  "overall_budget_and_hydration_tips": [
+    "Tip 1 regarding grocery shopping within budget",
+    "Tip 2 regarding hydration"
+  ],
+  "total_calories": 0,
+  "total_cost": 0
 }
-Make sure all time strings are formatted in "HH:MM AM/PM" 12-hour format. Do not add any markdown blocks or extra explanation; output ONLY valid raw JSON.`,
+
+Do not add any markdown blocks or extra explanation; output ONLY valid raw JSON.`,
 		"food_validation_prompt": `Analyze this image and return a JSON containing calories, protein, carbs, and fats.`,
 	}
 
 	for pType, pText := range defaultPrompts {
-		_, err := s.repo.GetAIPrompt(ctx, pType, nil)
-		if err != nil {
-			s.log.Info("Seeding default AI prompt for the first time", "type", pType)
-			_ = s.repo.UpdateAIPromptGlobal(ctx, pType, pText, true)
-		}
+		s.log.Info("Upserting default AI prompt", "type", pType)
+		_ = s.repo.UpdateAIPromptGlobal(ctx, pType, pText, true)
 	}
 
 	// Seed default model names — only if not already set.
@@ -86,43 +113,24 @@ Make sure all time strings are formatted in "HH:MM AM/PM" 12-hour format. Do not
 	return nil
 }
 
+// DietChartOptions holds the runtime inputs for diet chart generation.
+type DietChartOptions struct {
+	Language     string // "en" | "bn" — text language for the output
+	GymTime      string // e.g. "6:00 PM to 7:30 PM"
+	Location     string // e.g. "Bagerhat"
+	MaxBudgetBDT string // e.g. "200"
+}
+
 // GenerateDietChart calls Gemini to generate a personalized diet chart.
-// language: "en" for English, "bn" for Bangla.
-func (s *AIService) GenerateDietChart(ctx context.Context, member *models.Member, language string) (json.RawMessage, int, error) {
+func (s *AIService) GenerateDietChart(ctx context.Context, member *models.Member, opts DietChartOptions) (json.RawMessage, int, error) {
 	promptData, err := s.repo.GetAIPrompt(ctx, "diet_generation_prompt", member.CreatedByAdminID)
 	if err != nil {
-		promptData = sqlcdb.AiPrompt{
-			PromptText: `You are an expert nutritionist. Generate a personalized, daily diet plan for the user in JSON format.
-The JSON must strictly conform to the following schema:
-{
-  "daily_calories": 2000,
-  "macros": {
-    "protein": 150,
-    "carbs": 200,
-    "fats": 65
-  },
-  "meals": [
-    {
-      "name": "Breakfast",
-      "time": "08:30 AM",
-      "calories": 500,
-      "protein": 35,
-      "carbs": 55,
-      "fats": 15,
-      "items": [
-        "3 egg whites and 1 whole egg",
-        "1 cup cooked oatmeal",
-        "1 medium banana"
-      ]
-    }
-  ]
-}
-Make sure all time strings are formatted in "HH:MM AM/PM" 12-hour format. Do not add any markdown blocks or extra explanation; output ONLY valid raw JSON.`,
-		}
+		// Inline fallback matches the seeded prompt exactly
+		promptData = sqlcdb.AiPrompt{PromptText: "Act as an expert Clinical Nutritionist and Fitness Coach. Generate a personalized daily diet chart in strict JSON format with no markdown. Output only valid raw JSON."}
 	}
 
-	goalVal := "Not set"
-	if member.Goal != nil {
+	goalVal := "Muscle Gain & Fitness"
+	if member.Goal != nil && *member.Goal != "" {
 		goalVal = *member.Goal
 	}
 	weightVal := "Not set"
@@ -133,30 +141,43 @@ Make sure all time strings are formatted in "HH:MM AM/PM" 12-hour format. Do not
 	if member.HeightCm != nil {
 		heightVal = fmt.Sprintf("%.1f cm", *member.HeightCm)
 	}
-	budgetVal := "Medium"
-	if member.BudgetLevel != nil {
-		budgetVal = *member.BudgetLevel
-	}
 	ageVal := "Not set"
 	if member.DateOfBirth != nil {
 		years := time.Now().Year() - member.DateOfBirth.Year()
 		if time.Now().YearDay() < member.DateOfBirth.YearDay() {
 			years--
 		}
-		ageVal = fmt.Sprintf("%d years old", years)
+		ageVal = fmt.Sprintf("%d", years)
 	}
 	hobbiesVal := "None"
 	if len(member.Hobbies) > 0 {
 		hobbiesVal = strings.Join(member.Hobbies, ", ")
 	}
-
-	userData := fmt.Sprintf("Gender: %s, Age: %s, Height: %s, Weight: %s, Goal/Target: %s, Physical Activities/Issues/Hobbies: %s, Budget Level: %s",
-		member.Gender, ageVal, heightVal, weightVal, goalVal, hobbiesVal, budgetVal)
-
-	langInstruction := "Generate the entire diet plan in English."
-	if language == "bn" {
-		langInstruction = "সম্পূর্ণ ডায়েট প্ল্যানটি বাংলায় তৈরি করুন। সকল meal নাম, খাবারের নাম এবং বিবরণ বাংলায় লিখুন।"
+	gymTimeVal := opts.GymTime
+	if gymTimeVal == "" {
+		gymTimeVal = "6:00 PM to 7:30 PM"
 	}
+	locationVal := opts.Location
+	if locationVal == "" {
+		locationVal = "Bagerhat, Bangladesh"
+	}
+	maxBudgetVal := opts.MaxBudgetBDT
+	if maxBudgetVal == "" {
+		budgetMap := map[string]string{"Low": "150", "Medium": "300", "High": "500"}
+		if member.BudgetLevel != nil {
+			if mapped, ok := budgetMap[*member.BudgetLevel]; ok {
+				maxBudgetVal = mapped
+			}
+		}
+		if maxBudgetVal == "" {
+			maxBudgetVal = "200"
+		}
+	}
+
+	userData := fmt.Sprintf(
+		"- Customer Name: %s\n- Gender: %s\n- Age: %s\n- Weight: %s\n- Height: %s\n- User Goal: %s\n- Physical Activities/Hobbies: %s\n- Current Location: %s\n- Max Daily Budget: %s BDT\n- Gym Time: %s\n- Language of Text Fields inside JSON: Bengali (বাংলা), BUT all price values must be in English.",
+		member.Name, member.Gender, ageVal, weightVal, heightVal, goalVal, hobbiesVal, locationVal, maxBudgetVal, gymTimeVal,
+	)
 
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey:  s.cfg.TextAPIKey,
@@ -171,7 +192,7 @@ Make sure all time strings are formatted in "HH:MM AM/PM" 12-hour format. Do not
 	result, err := client.Models.GenerateContent(
 		ctx,
 		modelName,
-		genai.Text(promptData.PromptText+"\nUser Data: "+userData+"\nLanguage Instruction: "+langInstruction),
+		genai.Text(promptData.PromptText+"\n\nInput Context to process:\n"+userData),
 		&genai.GenerateContentConfig{
 			ResponseMIMEType: "application/json",
 		},

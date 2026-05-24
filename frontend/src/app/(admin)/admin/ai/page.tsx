@@ -103,6 +103,10 @@ function DietTab({ memberId }: { memberId: string }) {
   const approve  = useApproveDietChart(memberId)
   const decline  = useDeclineDietChart(memberId)
 
+  const [gymTime,   setGymTime]   = useState('')
+  const [location,  setLocation]  = useState('')
+  const [maxBudget, setMaxBudget] = useState('')
+
   if (isLoading) return <Skeleton className="h-64 rounded-2xl" />
   if (!member)   return null
 
@@ -119,9 +123,44 @@ function DietTab({ memberId }: { memberId: string }) {
         </div>
       )}
 
+      {/* Diet generation inputs */}
+      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Diet Inputs</p>
+        <div className="grid grid-cols-1 gap-2">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Gym Time</label>
+            <Input
+              value={gymTime}
+              onChange={(e) => setGymTime(e.target.value)}
+              placeholder="e.g. 6:00 PM to 7:30 PM"
+              className="h-9 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Location</label>
+            <Input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Bagerhat"
+              className="h-9 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Max Daily Budget (BDT)</label>
+            <Input
+              type="number"
+              value={maxBudget}
+              onChange={(e) => setMaxBudget(e.target.value)}
+              placeholder="e.g. 200"
+              className="h-9 text-sm"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Generate button */}
       <Button
-        onClick={() => generate.mutate()}
+        onClick={() => generate.mutate({ gym_time: gymTime, location, max_budget_bdt: maxBudget, language: 'bn' })}
         disabled={generate.isPending || !member.is_ai_allowed}
         className="w-full gap-2 bg-primary text-white hover:bg-primary/90"
       >

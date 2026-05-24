@@ -722,20 +722,39 @@ func (h *AdminMemberHandler) GenerateMemberDietChart(c *fiber.Ctx) error {
 		}
 	}
 
+	// Parse optional body fields (gym_time, location, max_budget_bdt, language)
+	type generateDietChartRequest struct {
+		Language     string `json:"language"`
+		GymTime      string `json:"gym_time"`
+		Location     string `json:"location"`
+		MaxBudgetBDT string `json:"max_budget_bdt"`
+	}
+	var req generateDietChartRequest
+	_ = c.BodyParser(&req)
+	// language can also come from query param for backward compat
+	if req.Language == "" {
+		req.Language = c.Query("language", "bn")
+	}
+	if req.Language != "bn" {
+		req.Language = "en"
+	}
+
 	if member.BudgetLevel == nil || *member.BudgetLevel == "" {
-		// Set a default budget level if not set
 		defaultBudget := "Low"
 		member.BudgetLevel = &defaultBudget
 	}
 
-	language := c.Query("language", "en")
-	if language != "bn" {
-		language = "en"
+	fmt.Printf("Generating diet chart for member %s (ID: %s) gym_time=%q location=%q budget=%q lang=%s\n",
+		member.Name, member.ID, req.GymTime, req.Location, req.MaxBudgetBDT, req.Language)
+
+	opts := services.DietChartOptions{
+		Language:     req.Language,
+		GymTime:      req.GymTime,
+		Location:     req.Location,
+		MaxBudgetBDT: req.MaxBudgetBDT,
 	}
 
-	fmt.Printf("Generating diet chart for member %s (ID: %s) with budget level: %s, language: %s\n", member.Name, member.ID, *member.BudgetLevel, language)
-
-	dietJSON, tokens, err := h.aiSvc.GenerateDietChart(ctx, member, language)
+	dietJSON, tokens, err := h.aiSvc.GenerateDietChart(ctx, member, opts)
 	if err != nil {
 		h.log.ErrorContext(ctx, "generate diet chart failed", "error", err, "member_id", member.ID)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to generate diet chart", nil)

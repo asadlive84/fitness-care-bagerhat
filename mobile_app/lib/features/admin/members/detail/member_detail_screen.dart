@@ -1186,7 +1186,10 @@ class _AiNutritionCardState extends ConsumerState<_AiNutritionCard> {
   bool _isUpdatingAI = false;
   bool _isGeneratingDiet = false;
   bool _isApprovingDeclining = false;
-  String _dietLanguage = 'en';
+  String _dietLanguage = 'bn';
+  final _gymTimeCtrl   = TextEditingController();
+  final _locationCtrl  = TextEditingController();
+  final _budgetCtrl    = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -1448,6 +1451,13 @@ class _AiNutritionCardState extends ConsumerState<_AiNutritionCard> {
               ),
             ],
           ),
+          const SizedBox(height: AppSpacing.s16),
+          // Diet inputs
+          _DietInputField(controller: _gymTimeCtrl,  label: 'জিম টাইম', hint: 'যেমন: সন্ধ্যা ৬:০০ – ৭:৩০'),
+          const SizedBox(height: AppSpacing.s8),
+          _DietInputField(controller: _locationCtrl, label: 'লোকেশন',   hint: 'যেমন: বাগেরহাট'),
+          const SizedBox(height: AppSpacing.s8),
+          _DietInputField(controller: _budgetCtrl,   label: 'সর্বোচ্চ বাজেট (BDT)', hint: 'যেমন: ২০০', isNumber: true),
           const SizedBox(height: AppSpacing.s12),
           // Generate Plan Button
           SizedBox(
@@ -1484,7 +1494,13 @@ class _AiNutritionCardState extends ConsumerState<_AiNutritionCard> {
                     onPressed: () async {
                       setState(() => _isGeneratingDiet = true);
                       try {
-                        await ref.read(memberRepositoryProvider).generateDietChart(member.id, language: _dietLanguage);
+                        await ref.read(memberRepositoryProvider).generateDietChart(
+                          member.id,
+                          language: _dietLanguage,
+                          gymTime: _gymTimeCtrl.text.trim(),
+                          location: _locationCtrl.text.trim(),
+                          maxBudgetBdt: _budgetCtrl.text.trim(),
+                        );
                         ref.read(memberDetailControllerProvider(widget.screenId).notifier).load();
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -1796,6 +1812,57 @@ class _PendingDietPreview extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+// ── Reusable diet input field ─────────────────────────────────────────────────
+
+class _DietInputField extends StatelessWidget {
+  const _DietInputField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    this.isNumber = false,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final bool isNumber;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppText.bodySmall.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        TextField(
+          controller: controller,
+          keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: AppText.bodySmall.copyWith(color: AppColors.textHint),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: AppColors.divider),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: AppColors.divider),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+            ),
+            filled: true,
+            fillColor: AppColors.surface,
+          ),
+          style: AppText.bodySmall,
+        ),
+      ],
     );
   }
 }
