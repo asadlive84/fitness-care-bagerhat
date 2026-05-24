@@ -10,6 +10,15 @@ import {
   List, X, Star, AppleLogo,
 } from '@phosphor-icons/react'
 import { getRole, roleHomePath } from '@/lib/auth'
+import { api } from '@/lib/api'
+
+interface Plan {
+  id: string
+  name: string
+  duration_days: number
+  default_price: number
+  billing_type: string
+}
 
 const fade = (delay = 0) => ({
   hidden: { opacity: 0, y: 20 },
@@ -56,29 +65,6 @@ const STATS = [
   { value: '৯৮%', label: 'সদস্য সন্তুষ্টি' },
 ]
 
-const PLANS = [
-  {
-    name: 'মাসিক',
-    price: '৳৮০০',
-    period: '/মাস',
-    features: ['সকল যন্ত্রপাতি ব্যবহার', 'গ্রুপ ক্লাস', 'মোবাইল অ্যাপ অ্যাক্সেস'],
-    highlight: false,
-  },
-  {
-    name: 'ত্রৈমাসিক',
-    price: '৳২২০০',
-    period: '/৩ মাস',
-    features: ['সকল যন্ত্রপাতি ব্যবহার', 'গ্রুপ ক্লাস', 'মোবাইল অ্যাপ অ্যাক্সেস', 'AI ডায়েট চার্ট', 'ব্যক্তিগত কোচিং'],
-    highlight: true,
-  },
-  {
-    name: 'বার্ষিক',
-    price: '৳৮০০০',
-    period: '/বছর',
-    features: ['সকল যন্ত্রপাতি ব্যবহার', 'গ্রুপ ক্লাস', 'মোবাইল অ্যাপ অ্যাক্সেস', 'AI ডায়েট চার্ট', 'ব্যক্তিগত কোচিং', 'অগ্রাধিকার সহায়তা'],
-    highlight: false,
-  },
-]
 
 const WHY = [
   { icon: <Lightning size={22} weight="fill" />, text: 'আধুনিক ও পরিষ্কার পরিবেশ' },
@@ -87,13 +73,24 @@ const WHY = [
   { icon: <Star size={22} weight="fill" />, text: 'বিশেষজ্ঞ প্রশিক্ষক দল' },
 ]
 
+function durationLabel(days: number): string {
+  if (days <= 31)  return '/মাস'
+  if (days <= 95)  return '/৩ মাস'
+  if (days <= 185) return '/৬ মাস'
+  return '/বছর'
+}
+
 export default function LandingPage() {
   const [dashPath, setDashPath] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [plans, setPlans]       = useState<Plan[]>([])
 
   useEffect(() => {
     const role = getRole()
     if (role) setDashPath(roleHomePath(role))
+    api.get<{ success: boolean; data: Plan[] }>('/api/v1/plans')
+      .then(({ data }) => { if (data.success) setPlans(data.data ?? []) })
+      .catch(() => {/* silently ignore — page still works without plans */})
   }, [])
 
   return (
@@ -371,59 +368,74 @@ export default function LandingPage() {
             </h2>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {PLANS.map((p, i) => (
-              <motion.div
-                key={i}
-                variants={fade(i * 0.1)}
-                initial="hidden"
-                whileInView="show"
-                viewport={{ once: true }}
-                className={`relative rounded-2xl p-6 flex flex-col border transition ${
-                  p.highlight
-                    ? 'bg-[#1B5E20] text-white border-[#1B5E20] shadow-xl'
-                    : 'bg-white text-[#1A2E1F] border-[#e5ebe6] shadow-sm'
-                }`}
-              >
-                {p.highlight && (
-                  <div className="absolute -top-3 inset-x-0 flex justify-center">
-                    <span className="px-3 py-1 bg-[#FF6D00] text-white text-[10px] font-bold rounded-full uppercase tracking-wide">
-                      সবচেয়ে জনপ্রিয়
-                    </span>
-                  </div>
-                )}
-                <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${p.highlight ? 'text-[#8BC34A]' : 'text-[#4C7A4F]'}`}>
-                  {p.name}
-                </div>
-                <div className="flex items-baseline gap-1 mb-5">
-                  <span className="text-3xl font-bold">{p.price}</span>
-                  <span className={`text-sm ${p.highlight ? 'text-white/60' : 'text-[#5E6E62]'}`}>{p.period}</span>
-                </div>
-                <ul className="space-y-2 flex-1 mb-6">
-                  {p.features.map((f, j) => (
-                    <li key={j} className="flex items-center gap-2 text-sm">
-                      <CheckCircle
-                        size={16}
-                        weight="fill"
-                        className={p.highlight ? 'text-[#8BC34A]' : 'text-[#1B5E20]'}
-                      />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href="/register"
-                  className={`w-full py-2.5 rounded-full text-center text-sm font-bold transition ${
-                    p.highlight
-                      ? 'bg-white text-[#1B5E20] hover:bg-[#f0f7f0]'
-                      : 'bg-[#1B5E20] text-white hover:bg-[#155218]'
-                  }`}
-                >
-                  শুরু করুন
-                </Link>
-              </motion.div>
-            ))}
-          </div>
+          {plans.length === 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="rounded-2xl bg-white border border-[#e5ebe6] h-64 animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {plans.map((p, i) => {
+                const highlight = i === 1 && plans.length >= 3
+                return (
+                  <motion.div
+                    key={p.id}
+                    variants={fade(i * 0.1)}
+                    initial="hidden"
+                    whileInView="show"
+                    viewport={{ once: true }}
+                    className={`relative rounded-2xl p-6 flex flex-col border transition ${
+                      highlight
+                        ? 'bg-[#1B5E20] text-white border-[#1B5E20] shadow-xl'
+                        : 'bg-white text-[#1A2E1F] border-[#e5ebe6] shadow-sm'
+                    }`}
+                  >
+                    {highlight && (
+                      <div className="absolute -top-3 inset-x-0 flex justify-center">
+                        <span className="px-3 py-1 bg-[#FF6D00] text-white text-[10px] font-bold rounded-full uppercase tracking-wide">
+                          সবচেয়ে জনপ্রিয়
+                        </span>
+                      </div>
+                    )}
+                    <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${highlight ? 'text-[#8BC34A]' : 'text-[#4C7A4F]'}`}>
+                      {p.name}
+                    </div>
+                    <div className="flex items-baseline gap-1 mb-5">
+                      <span className="text-3xl font-bold">৳{p.default_price.toLocaleString()}</span>
+                      <span className={`text-sm ${highlight ? 'text-white/60' : 'text-[#5E6E62]'}`}>
+                        {durationLabel(p.duration_days)}
+                      </span>
+                    </div>
+                    <ul className="space-y-2 flex-1 mb-6">
+                      <li className="flex items-center gap-2 text-sm">
+                        <CheckCircle size={16} weight="fill" className={highlight ? 'text-[#8BC34A]' : 'text-[#1B5E20]'} />
+                        সকল যন্ত্রপাতি ব্যবহার
+                      </li>
+                      <li className="flex items-center gap-2 text-sm">
+                        <CheckCircle size={16} weight="fill" className={highlight ? 'text-[#8BC34A]' : 'text-[#1B5E20]'} />
+                        {p.duration_days} দিনের মেম্বারশিপ
+                      </li>
+                      <li className="flex items-center gap-2 text-sm">
+                        <CheckCircle size={16} weight="fill" className={highlight ? 'text-[#8BC34A]' : 'text-[#1B5E20]'} />
+                        মোবাইল অ্যাপ অ্যাক্সেস
+                      </li>
+                    </ul>
+                    <Link
+                      href="/register"
+                      className={`w-full py-2.5 rounded-full text-center text-sm font-bold transition ${
+                        highlight
+                          ? 'bg-white text-[#1B5E20] hover:bg-[#f0f7f0]'
+                          : 'bg-[#1B5E20] text-white hover:bg-[#155218]'
+                      }`}
+                    >
+                      শুরু করুন
+                    </Link>
+                  </motion.div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </section>
 

@@ -270,6 +270,9 @@ func main() {
 		},
 	})
 
+	// Public plans (no auth) — used by landing page
+	v1.Get("/plans", adminPlanHandler.PublicListPlans)
+
 	auth := v1.Group("/auth", authRateLimit)
 	auth.Post("/admin/login", authHandler.AdminLogin)
 	auth.Post("/member/login", authHandler.MemberLogin)

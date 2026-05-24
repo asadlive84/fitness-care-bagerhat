@@ -16,6 +16,7 @@ import (
 
 type adminPlanSvc interface {
 	CreatePlan(ctx context.Context, req services.CreatePlanRequest) (*models.PlanTemplate, error)
+	ListPlans(ctx context.Context) ([]*models.PlanTemplate, error)
 	ListPlansWithSubscribers(ctx context.Context, filter models.PlanListFilter) (*models.PlansListResponse, error)
 	UpdatePlan(ctx context.Context, id uuid.UUID, req services.UpdatePlanRequest) (*models.PlanTemplate, error)
 	DeletePlan(ctx context.Context, id uuid.UUID) error
@@ -225,4 +226,15 @@ func (h *AdminPlanHandler) DeletePlan(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// PublicListPlans returns all active plan templates — no auth required.
+// Used by the public landing page to display pricing.
+func (h *AdminPlanHandler) PublicListPlans(c *fiber.Ctx) error {
+	plans, err := h.svc.ListPlans(c.UserContext())
+	if err != nil {
+		h.log.ErrorContext(c.UserContext(), "public list plans", "error", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to load plans", nil)
+	}
+	return utils.SuccessResponse(c, fiber.StatusOK, plans)
 }
