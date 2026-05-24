@@ -120,6 +120,15 @@ apk:
 	cp mobile_app/build/app/outputs/flutter-apk/app-release.apk fitnessCareBagerhat.apk
 	@echo "APK ready → fitnessCareBagerhat.apk"
 
+ipa:
+	cd mobile_app && flutter build ipa --release --no-codesign
+	mkdir -p /tmp/ipa_build/Payload
+	cp -r mobile_app/build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app /tmp/ipa_build/Payload/
+	cd /tmp/ipa_build && zip -r fitnessCareBagerhat.ipa Payload
+	cp /tmp/ipa_build/fitnessCareBagerhat.ipa ./fitnessCareBagerhat.ipa
+	rm -rf /tmp/ipa_build
+	@echo "IPA ready → fitnessCareBagerhat.ipa"
+
 
 mobile_app:
 	flutter run -d emulator-5554;

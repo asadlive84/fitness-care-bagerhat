@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/login']
+// Routes accessible without a token
+const PUBLIC_PATHS = ['/', '/login', '/register']
 
 const ROLE_PREFIX: Record<string, string> = {
-  admin: '/admin',
-  member: '/member',
+  admin:      '/admin',
+  member:     '/member',
   superadmin: '/superadmin',
 }
 
@@ -21,29 +22,32 @@ function decodeJWT(token: string) {
   }
 }
 
-export function proxy(request: NextRequest) {
+export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+  // Allow public paths
+  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
     return NextResponse.next()
   }
 
   const token = request.cookies.get('fc_token')?.value
 
   if (!token) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    // Unauthenticated → send to landing page
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
   const payload = decodeJWT(token)
 
   if (!payload || Date.now() / 1000 > payload.exp) {
-    const res = NextResponse.redirect(new URL('/login', request.url))
+    const res = NextResponse.redirect(new URL('/', request.url))
     res.cookies.delete('fc_token')
     return res
   }
 
+  // Authenticated user on wrong role prefix → redirect to their own dashboard
   const allowed = ROLE_PREFIX[payload.role]
-  if (allowed && !pathname.startsWith(allowed) && pathname !== '/') {
+  if (allowed && !pathname.startsWith(allowed)) {
     return NextResponse.redirect(new URL(allowed + '/dashboard', request.url))
   }
 
@@ -51,5 +55,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|uploads/|api/|.*\\.png$|.*\\.ico$).*)'],
 }

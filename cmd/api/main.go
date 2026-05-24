@@ -239,14 +239,33 @@ func main() {
 	// ── Static Files ──────────────────────────────────────────────────────────
 	app.Static("/uploads", cfg.Upload.Dir)
 
+	// ── Rate limiters ────────────────────────────────────────────────────────
+	rateLimited := func(max int, window time.Duration) fiber.Handler {
+		return fiberlimiter.New(fiberlimiter.Config{
+			Max:        max,
+			Expiration: window,
+			LimitReached: func(c *fiber.Ctx) error {
+				return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+					"success": false,
+					"error": fiber.Map{
+						"code":    "RATE_LIMITED",
+						"message": "Too many requests, please try again later",
+					},
+				})
+			},
+		})
+	}
+
 	// ── API v1 ────────────────────────────────────────────────────────────────
-	v1 := app.Group("/api/v1")
+	// Global: 300 req/min per IP — broad DoS protection across all API routes.
+	v1 := app.Group("/api/v1", rateLimited(300, time.Minute))
 
-	// Upload (requires auth)
-	v1.Post("/upload", middleware.RequireAuth(jwtManager), uploadHandler.HandleUpload)
+	// Upload — 20 uploads/hour per IP to prevent storage abuse.
+	v1.Post("/upload", rateLimited(20, time.Hour), middleware.RequireAuth(jwtManager), uploadHandler.HandleUpload)
 
-	// AI (requires auth + permission)
-	aiGroup := v1.Group("/ai", 
+	// AI — 30 req/min per IP (AI calls are expensive).
+	aiGroup := v1.Group("/ai",
+		rateLimited(30, time.Minute),
 		middleware.RequireAuth(jwtManager),
 		middleware.RequireAIPermission(aiRepo, memberPgRepo, log),
 	)
@@ -255,30 +274,20 @@ func main() {
 	aiGroup.Post("/food-log", middleware.RequireDailyFoodLimit(aiRepo, log), aiHandler.AnalyzeFoodImage)
 	aiGroup.Get("/food-logs", aiHandler.GetFoodLogs)
 
-	// Auth — rate-limited to 10 req/min per IP to slow brute-force attempts.
-	authRateLimit := fiberlimiter.New(fiberlimiter.Config{
-		Max:        10,
-		Expiration: time.Minute,
-		LimitReached: func(c *fiber.Ctx) error {
-			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
-				"success": false,
-				"error": fiber.Map{
-					"code":    "RATE_LIMITED",
-					"message": "Too many requests, please try again later",
-				},
-			})
-		},
-	})
+	// Auth — 10 req/min for login/refresh, 5 req/hour for registration.
+	authRateLimit    := rateLimited(10, time.Minute)
+	registerLimit    := rateLimited(5, time.Hour)
 
 	// Public plans (no auth) — used by landing page
 	v1.Get("/plans", adminPlanHandler.PublicListPlans)
 
-	auth := v1.Group("/auth", authRateLimit)
-	auth.Post("/admin/login", authHandler.AdminLogin)
-	auth.Post("/member/login", authHandler.MemberLogin)
-	auth.Post("/refresh", authHandler.RefreshToken)
-	auth.Post("/register", authHandler.RegisterMember)
+	auth := v1.Group("/auth")
+	auth.Post("/admin/login",  authRateLimit, authHandler.AdminLogin)
+	auth.Post("/member/login", authRateLimit, authHandler.MemberLogin)
+	auth.Post("/refresh",      authRateLimit, authHandler.RefreshToken)
+	auth.Post("/register",     registerLimit, authHandler.RegisterMember)
 	auth.Post("/change-password",
+		authRateLimit,
 		middleware.RequireAuth(jwtManager),
 		middleware.RequireRole(appauth.RoleMember),
 		authHandler.ChangePassword,
