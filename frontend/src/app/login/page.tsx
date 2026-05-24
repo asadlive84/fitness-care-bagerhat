@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, FormEvent, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Eye, EyeSlash, Plant, Warning } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
@@ -14,11 +14,17 @@ import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
 export default function LoginPage() {
-  const router = useRouter()
+  const router      = useRouter()
+  const params      = useSearchParams()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword]     = useState('')
   const [showPw, setShowPw]         = useState(false)
   const [role, setRole]             = useState<'member' | 'admin' | 'superadmin'>('member')
+
+  useEffect(() => {
+    const r = params.get('role')
+    if (r === 'admin' || r === 'superadmin') setRole(r)
+  }, [params])
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState<string | null>(null)
 

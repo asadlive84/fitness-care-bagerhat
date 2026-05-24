@@ -123,6 +123,8 @@ export default function LandingPage() {
               </Link>
             ) : (
               <>
+                <Link href="/login?role=admin" className="hover:text-[#1B5E20] text-xs">এডমিন</Link>
+                <Link href="/login?role=superadmin" className="hover:text-[#1B5E20] text-xs">সুপারঅ্যাডমিন</Link>
                 <Link
                   href="/register"
                   className="px-4 py-1.5 rounded-full border border-[#1B5E20] text-[#1B5E20] text-xs font-semibold hover:bg-[#1B5E20] hover:text-white transition"
@@ -151,31 +153,30 @@ export default function LandingPage() {
 
         {/* Mobile menu */}
         {menuOpen && (
-          <div className="sm:hidden glass-strong border-t border-white/30 px-4 pb-4 flex flex-col gap-3 text-sm font-medium text-[#3a5c3f]">
+          <div className="sm:hidden glass-strong border-t border-white/30 px-4 pb-4 flex flex-col gap-2 text-sm font-medium text-[#3a5c3f]">
             <a href="#services" onClick={() => setMenuOpen(false)} className="py-2 border-b border-[#e0e8e1]">সেবাসমূহ</a>
             <a href="#plans" onClick={() => setMenuOpen(false)} className="py-2 border-b border-[#e0e8e1]">মেম্বারশিপ</a>
             <a href="#contact" onClick={() => setMenuOpen(false)} className="py-2 border-b border-[#e0e8e1]">যোগাযোগ</a>
             {dashPath ? (
-              <Link
-                href={dashPath}
-                className="py-2.5 rounded-full bg-[#1B5E20] text-white text-center text-xs font-semibold"
-              >
+              <Link href={dashPath} className="py-2.5 rounded-full bg-[#1B5E20] text-white text-center text-xs font-semibold mt-1">
                 ড্যাশবোর্ড
               </Link>
             ) : (
               <>
-                <Link
-                  href="/register"
-                  className="py-2.5 rounded-full border border-[#1B5E20] text-[#1B5E20] text-center text-xs font-semibold"
-                >
-                  নিবন্ধন করুন
+                <Link href="/login?role=admin" onClick={() => setMenuOpen(false)} className="py-2 border-b border-[#e0e8e1] text-[#3a5c3f]">
+                  এডমিন লগইন
                 </Link>
-                <Link
-                  href="/login"
-                  className="py-2.5 rounded-full bg-[#1B5E20] text-white text-center text-xs font-semibold"
-                >
-                  লগইন করুন
+                <Link href="/login?role=superadmin" onClick={() => setMenuOpen(false)} className="py-2 border-b border-[#e0e8e1] text-[#3a5c3f]">
+                  সুপারঅ্যাডমিন লগইন
                 </Link>
+                <div className="flex flex-col gap-2 mt-1">
+                  <Link href="/register" className="py-2.5 rounded-full border border-[#1B5E20] text-[#1B5E20] text-center text-xs font-semibold">
+                    নিবন্ধন করুন
+                  </Link>
+                  <Link href="/login" className="py-2.5 rounded-full bg-[#1B5E20] text-white text-center text-xs font-semibold">
+                    লগইন করুন
+                  </Link>
+                </div>
               </>
             )}
           </div>
