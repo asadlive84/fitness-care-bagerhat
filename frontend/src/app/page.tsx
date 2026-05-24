@@ -550,8 +550,8 @@ export default function LandingPage() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Phone size={14} className="text-[#FF6D00] flex-shrink-0" />
-                  <a href="tel:+8801700000000" className="hover:text-white transition">
-                    +৮৮ ০১৭০০-০০০০০০
+                  <a href="tel:+8801309665159" className="hover:text-white transition">
+                    01309 665159
                   </a>
                 </li>
               </ul>
@@ -559,8 +559,8 @@ export default function LandingPage() {
           </div>
 
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-white/30 text-[11px]">
-            <p>© ২০২৫ ফিটনেস কেয়ার বাগেরহাট। সমস্ত অধিকার সংরক্ষিত।</p>
-            <p>ডিজাইন ও ডেভেলপমেন্ট — ডিজিটাল বাংলাদেশ</p>
+            <p>© ২০২৬ ফিটনেস কেয়ার বাগেরহাট। সমস্ত অধিকার সংরক্ষিত।</p>
+            <p>ডিজাইন ও ডেভেলপ — চন্দন সাহা নীল</p>
           </div>
         </div>
       </footer>
