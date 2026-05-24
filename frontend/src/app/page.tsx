@@ -110,16 +110,33 @@ export default function LandingPage() {
           </div>
 
           {/* Desktop nav */}
-          <div className="hidden sm:flex items-center gap-6 text-sm font-medium text-[#3a5c3f]">
+          <div className="hidden sm:flex items-center gap-4 text-sm font-medium text-[#3a5c3f]">
             <a href="#services" className="hover:text-[#1B5E20]">সেবাসমূহ</a>
             <a href="#plans" className="hover:text-[#1B5E20]">মেম্বারশিপ</a>
             <a href="#contact" className="hover:text-[#1B5E20]">যোগাযোগ</a>
-            <Link
-              href={dashPath ?? '/login'}
-              className="px-4 py-1.5 rounded-full bg-[#1B5E20] text-white text-xs font-semibold hover:bg-[#155218] transition"
-            >
-              {dashPath ? 'ড্যাশবোর্ড' : 'লগইন করুন'}
-            </Link>
+            {dashPath ? (
+              <Link
+                href={dashPath}
+                className="px-4 py-1.5 rounded-full bg-[#1B5E20] text-white text-xs font-semibold hover:bg-[#155218] transition"
+              >
+                ড্যাশবোর্ড
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/register"
+                  className="px-4 py-1.5 rounded-full border border-[#1B5E20] text-[#1B5E20] text-xs font-semibold hover:bg-[#1B5E20] hover:text-white transition"
+                >
+                  নিবন্ধন
+                </Link>
+                <Link
+                  href="/login"
+                  className="px-4 py-1.5 rounded-full bg-[#1B5E20] text-white text-xs font-semibold hover:bg-[#155218] transition"
+                >
+                  লগইন
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile hamburger */}
@@ -138,12 +155,29 @@ export default function LandingPage() {
             <a href="#services" onClick={() => setMenuOpen(false)} className="py-2 border-b border-[#e0e8e1]">সেবাসমূহ</a>
             <a href="#plans" onClick={() => setMenuOpen(false)} className="py-2 border-b border-[#e0e8e1]">মেম্বারশিপ</a>
             <a href="#contact" onClick={() => setMenuOpen(false)} className="py-2 border-b border-[#e0e8e1]">যোগাযোগ</a>
-            <Link
-              href={dashPath ?? '/login'}
-              className="py-2.5 rounded-full bg-[#1B5E20] text-white text-center text-xs font-semibold"
-            >
-              {dashPath ? 'ড্যাশবোর্ড' : 'লগইন করুন'}
-            </Link>
+            {dashPath ? (
+              <Link
+                href={dashPath}
+                className="py-2.5 rounded-full bg-[#1B5E20] text-white text-center text-xs font-semibold"
+              >
+                ড্যাশবোর্ড
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/register"
+                  className="py-2.5 rounded-full border border-[#1B5E20] text-[#1B5E20] text-center text-xs font-semibold"
+                >
+                  নিবন্ধন করুন
+                </Link>
+                <Link
+                  href="/login"
+                  className="py-2.5 rounded-full bg-[#1B5E20] text-white text-center text-xs font-semibold"
+                >
+                  লগইন করুন
+                </Link>
+              </>
+            )}
           </div>
         )}
       </header>

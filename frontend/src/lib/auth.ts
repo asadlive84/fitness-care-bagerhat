@@ -2,7 +2,11 @@ import type { JWTPayload, Role } from '@/types'
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('fc_token')
+  const ls = localStorage.getItem('fc_token')
+  if (ls) return ls
+  // Fall back to cookie (middleware uses this; keeps them in sync)
+  const match = document.cookie.match(/(?:^|;\s*)fc_token=([^;]+)/)
+  return match ? match[1] : null
 }
 
 export function setToken(token: string): void {
@@ -25,6 +29,7 @@ export function decodeToken(token: string): JWTPayload | null {
 export function getRole(): Role | null {
   const token = getToken()
   if (!token) return null
+  if (isTokenExpired(token)) return null
   return decodeToken(token)?.role ?? null
 }
 
