@@ -207,12 +207,22 @@ export default function LandingPage() {
                 {dashPath ? 'ড্যাশবোর্ডে যান' : 'সদস্য লগইন'}
                 <ArrowRight size={16} weight="bold" />
               </Link>
-              <a
-                href="#plans"
-                className="flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-white/30 text-white font-semibold text-sm hover:bg-white/10 transition"
-              >
-                মেম্বারশিপ দেখুন
-              </a>
+              {!dashPath && (
+                <Link
+                  href="/register"
+                  className="flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-white/30 text-white font-semibold text-sm hover:bg-white/10 transition"
+                >
+                  নিবন্ধন করুন
+                </Link>
+              )}
+              {dashPath && (
+                <a
+                  href="#plans"
+                  className="flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-white/30 text-white font-semibold text-sm hover:bg-white/10 transition"
+                >
+                  মেম্বারশিপ দেখুন
+                </a>
+              )}
             </motion.div>
           </div>
 
@@ -402,7 +412,7 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <Link
-                  href="/login"
+                  href="/register"
                   className={`w-full py-2.5 rounded-full text-center text-sm font-bold transition ${
                     p.highlight
                       ? 'bg-white text-[#1B5E20] hover:bg-[#f0f7f0]'
