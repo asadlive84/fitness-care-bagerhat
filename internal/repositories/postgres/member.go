@@ -25,7 +25,7 @@ func NewMemberRepo(db *sql.DB) *MemberRepo {
 // memberSelectCols is the canonical column list used by all raw member SELECTs.
 // password_hash is deliberately excluded — use GetMemberCredentials for auth.
 const memberSelectCols = `
-	id, name, phone, gender, goal, join_date,
+	id, name, phone, email, gender, goal, join_date,
 	current_weight, height_cm, date_of_birth, religion, blood_group,
 	hobbies, present_address, permanent_address, occupation, nid,
 	emergency_phone, status, must_change_password, created_at, updated_at,
@@ -53,9 +53,10 @@ func scanMember(scan func(dest ...interface{}) error) (*models.Member, error) {
 		dietChartJson        []byte
 		pendingDietChartJson []byte
 	)
+	var emailVal sql.NullString
 	m := &models.Member{}
 	err := scan(
-		&m.ID, &m.Name, &m.Phone, &m.Gender, &goal, &m.JoinDate,
+		&m.ID, &m.Name, &m.Phone, &emailVal, &m.Gender, &goal, &m.JoinDate,
 		&currentWeight, &heightCm, &dateOfBirth, &religion, &bloodGroup,
 		&hobbies, &presentAddress, &permanentAddress, &occupation, &nidVal,
 		&emergencyPhone, &m.Status, &m.MustChangePassword, &m.CreatedAt, &m.UpdatedAt,
@@ -63,6 +64,9 @@ func scanMember(scan func(dest ...interface{}) error) (*models.Member, error) {
 	)
 	if err != nil {
 		return nil, err
+	}
+	if emailVal.Valid {
+		m.Email = &emailVal.String
 	}
 	if goal.Valid {
 		m.Goal = &goal.String
@@ -127,19 +131,19 @@ func (r *MemberRepo) Create(ctx context.Context, m *models.Member, passwordHash 
 	}
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO members (
-			id, name, phone, password_hash, gender, goal, join_date,
+			id, name, phone, email, password_hash, gender, goal, join_date,
 			current_weight, height_cm, date_of_birth, religion, blood_group,
 			hobbies, present_address, permanent_address, occupation, nid,
 			emergency_phone, status, must_change_password, created_by_admin_id,
 			is_ai_allowed, is_ai_food_log_allowed
 		) VALUES (
-			$1,$2,$3,$4,$5,$6,$7,
-			$8,$9,$10,$11,$12,
-			$13,$14,$15,$16,$17,
-			$18,$19,$20,$21,
-			$22,$23
+			$1,$2,$3,$4,$5,$6,$7,$8,
+			$9,$10,$11,$12,$13,
+			$14,$15,$16,$17,$18,
+			$19,$20,$21,$22,
+			$23,$24
 		)`,
-		m.ID, m.Name, m.Phone, passwordHash, m.Gender, nullString(m.Goal), m.JoinDate,
+		m.ID, m.Name, m.Phone, nullString(m.Email), passwordHash, m.Gender, nullString(m.Goal), m.JoinDate,
 		nullFloat64(m.CurrentWeight), nullFloat64(m.HeightCm), dob, nullString(m.Religion), nullString(m.BloodGroup),
 		pq.Array(m.Hobbies), nullString(m.PresentAddress), nullString(m.PermanentAddress), nullString(m.Occupation), nullString(m.NID),
 		nullString(m.EmergencyPhone), m.Status, m.MustChangePassword, nullUUID(m.CreatedByAdminID),

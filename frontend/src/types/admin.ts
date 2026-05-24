@@ -5,7 +5,8 @@ export interface AdminMember {
   name: string
   phone: string
   gender: string
-  status: 'active' | 'inactive'
+  status: 'active' | 'inactive' | 'pending' | 'rejected'
+  email?: string
   join_date?: string
   current_weight?: number
   height_cm?: number
@@ -28,6 +29,8 @@ export interface AdminMember {
   active_subscription?: Subscription
   diet_chart?: Record<string, unknown>
   pending_diet_chart?: Record<string, unknown>
+  diet_chart_json?: Record<string, unknown>
+  pending_diet_chart_json?: Record<string, unknown>
 }
 
 export interface Plan {

@@ -30,6 +30,8 @@ type adminMemberSvc interface {
 	ResetMemberPassword(ctx context.Context, id uuid.UUID) (*services.ResetPasswordResult, error)
 	DeleteMember(ctx context.Context, id uuid.UUID) error
 	InvalidateCache(ctx context.Context, id uuid.UUID, phone string) error
+	ApproveMember(ctx context.Context, id uuid.UUID) (*services.ApproveMemberResult, error)
+	RejectMember(ctx context.Context, id uuid.UUID) error
 }
 
 type adminEnrichedSubSvc interface {
@@ -435,6 +437,51 @@ func (h *AdminMemberHandler) DeleteMember(c *fiber.Ctx) error {
 		}
 		h.log.ErrorContext(c.UserContext(), "delete member", "error", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Delete failed", nil)
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// ApproveMember activates a pending self-registered member and returns a temp password.
+func (h *AdminMemberHandler) ApproveMember(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "INVALID_ID", "Member ID must be a valid UUID", nil)
+	}
+
+	result, err := h.svc.ApproveMember(c.UserContext(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrNotFound):
+			return utils.ErrorResponse(c, fiber.StatusNotFound, "NOT_FOUND", "Member not found", nil)
+		case errors.Is(err, services.ErrConflict):
+			return utils.ErrorResponse(c, fiber.StatusConflict, "CONFLICT", "Member is not in pending state", nil)
+		default:
+			h.log.ErrorContext(c.UserContext(), "approve member", "error", err)
+			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Approval failed", nil)
+		}
+	}
+
+	return utils.SuccessResponse(c, fiber.StatusOK, result)
+}
+
+// RejectMember marks a pending self-registered member as rejected.
+func (h *AdminMemberHandler) RejectMember(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "INVALID_ID", "Member ID must be a valid UUID", nil)
+	}
+
+	if err := h.svc.RejectMember(c.UserContext(), id); err != nil {
+		switch {
+		case errors.Is(err, services.ErrNotFound):
+			return utils.ErrorResponse(c, fiber.StatusNotFound, "NOT_FOUND", "Member not found", nil)
+		case errors.Is(err, services.ErrConflict):
+			return utils.ErrorResponse(c, fiber.StatusConflict, "CONFLICT", "Member is not in pending state", nil)
+		default:
+			h.log.ErrorContext(c.UserContext(), "reject member", "error", err)
+			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Rejection failed", nil)
+		}
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)

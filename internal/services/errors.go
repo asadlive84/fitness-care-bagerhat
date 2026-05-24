@@ -7,6 +7,7 @@ import "errors"
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrMemberInactive     = errors.New("member account is inactive")
+	ErrMemberPending      = errors.New("member account is pending approval")
 	ErrNotFound           = errors.New("not found")
 	ErrConflict           = errors.New("conflict")
 	ErrForbidden          = errors.New("forbidden")

@@ -64,8 +64,11 @@ func (s *AuthService) LoginMember(ctx context.Context, phone, password string) (
 		return nil, ErrInvalidCredentials
 	}
 
-	if creds.Status == "inactive" {
+	switch creds.Status {
+	case "inactive", "rejected":
 		return nil, ErrMemberInactive
+	case "pending":
+		return nil, ErrMemberPending
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(creds.PasswordHash), []byte(password)); err != nil {

@@ -231,6 +231,26 @@ type ResetPasswordResult struct {
 	TempPassword string `json:"temp_password"`
 }
 
+// RegisterMemberRequest carries self-registration input from a prospective member.
+type RegisterMemberRequest struct {
+	Name           string
+	Phone          string
+	Email          *string
+	Gender         string
+	Religion       *string
+	DateOfBirth    *time.Time
+	NID            *string
+	PresentAddress *string
+	HeightCm       *float64
+	CurrentWeight  *float64
+}
+
+// ApproveMemberResult bundles the approved member with its one-time temp password.
+type ApproveMemberResult struct {
+	Member       *models.Member `json:"member"`
+	TempPassword string         `json:"temp_password"`
+}
+
 // ResetMemberPassword generates a new cryptographically random temp password,
 // hashes it, stores it, and returns the plaintext so the admin can hand it to
 // the member. The member will be required to change it on next login.
@@ -273,6 +293,85 @@ func (s *MemberService) DeleteMember(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("delete member: %w", err)
 	}
 	return nil
+}
+
+// RegisterMember creates a pending member from a self-registration request.
+// No password is set; the member cannot log in until approved.
+func (s *MemberService) RegisterMember(ctx context.Context, req RegisterMemberRequest) (*models.Member, error) {
+	member := &models.Member{
+		ID:             uuid.New(),
+		Name:           req.Name,
+		Phone:          req.Phone,
+		Email:          req.Email,
+		Gender:         req.Gender,
+		Religion:       req.Religion,
+		DateOfBirth:    req.DateOfBirth,
+		NID:            req.NID,
+		PresentAddress: req.PresentAddress,
+		HeightCm:       req.HeightCm,
+		CurrentWeight:  req.CurrentWeight,
+		JoinDate:       time.Now(),
+		Status:         "pending",
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+
+	if err := s.members.Create(ctx, member, ""); err != nil {
+		if isConflict(err) {
+			return nil, fmt.Errorf("%w: phone number already registered", ErrConflict)
+		}
+		return nil, fmt.Errorf("register member: %w", err)
+	}
+	return member, nil
+}
+
+// ApproveMember activates a pending member and assigns a temporary password.
+func (s *MemberService) ApproveMember(ctx context.Context, id uuid.UUID) (*ApproveMemberResult, error) {
+	member, err := s.members.GetByID(ctx, id)
+	if err != nil {
+		if isNotFound(err) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get member: %w", err)
+	}
+	if member.Status != "pending" {
+		return nil, fmt.Errorf("%w: member is not pending", ErrConflict)
+	}
+
+	tempPass, err := generateTempPassword()
+	if err != nil {
+		return nil, fmt.Errorf("generate temp password: %w", err)
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(tempPass), 12)
+	if err != nil {
+		return nil, fmt.Errorf("hash temp password: %w", err)
+	}
+
+	if err := s.members.ResetPasswordByAdmin(ctx, id, string(hash)); err != nil {
+		return nil, fmt.Errorf("set password: %w", err)
+	}
+	if err := s.members.UpdateStatus(ctx, id, "active"); err != nil {
+		return nil, fmt.Errorf("activate member: %w", err)
+	}
+
+	member.Status = "active"
+	member.MustChangePassword = true
+	return &ApproveMemberResult{Member: member, TempPassword: tempPass}, nil
+}
+
+// RejectMember marks a pending member as rejected.
+func (s *MemberService) RejectMember(ctx context.Context, id uuid.UUID) error {
+	member, err := s.members.GetByID(ctx, id)
+	if err != nil {
+		if isNotFound(err) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("get member: %w", err)
+	}
+	if member.Status != "pending" {
+		return fmt.Errorf("%w: member is not pending", ErrConflict)
+	}
+	return s.members.UpdateStatus(ctx, id, "rejected")
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

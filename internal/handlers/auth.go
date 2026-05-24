@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/asadlive84/fitness-care-bagerhat/internal/services"
 	"github.com/asadlive84/fitness-care-bagerhat/internal/utils"
@@ -12,13 +13,19 @@ import (
 
 // AuthHandler holds the HTTP handlers for auth endpoints.
 type AuthHandler struct {
-	authSvc *services.AuthService
-	log     *slog.Logger
+	authSvc   *services.AuthService
+	memberSvc *services.MemberService
+	log       *slog.Logger
 }
 
 // NewAuthHandler creates an AuthHandler.
 func NewAuthHandler(authSvc *services.AuthService, log *slog.Logger) *AuthHandler {
 	return &AuthHandler{authSvc: authSvc, log: log}
+}
+
+// NewAuthHandlerWithMemberSvc creates an AuthHandler that also handles self-registration.
+func NewAuthHandlerWithMemberSvc(authSvc *services.AuthService, memberSvc *services.MemberService, log *slog.Logger) *AuthHandler {
+	return &AuthHandler{authSvc: authSvc, memberSvc: memberSvc, log: log}
 }
 
 // ── Request / Response DTOs ───────────────────────────────────────────────────
@@ -40,6 +47,19 @@ type refreshRequest struct {
 type changePasswordRequest struct {
 	CurrentPassword string `json:"current_password" validate:"required,min=6"`
 	NewPassword     string `json:"new_password"     validate:"required,min=8"`
+}
+
+type registerMemberRequest struct {
+	Name           string  `json:"name"            validate:"required,min=2,max=100"`
+	Phone          string  `json:"phone"           validate:"required,min=10,max=15"`
+	Email          *string `json:"email"`
+	Gender         string  `json:"gender"          validate:"required,oneof=Male Female Other"`
+	Religion       *string `json:"religion"`
+	DateOfBirth    *string `json:"date_of_birth"`  // YYYY-MM-DD
+	NID            *string `json:"nid"`
+	PresentAddress *string `json:"present_address"`
+	HeightCm       *float64 `json:"height_cm"`
+	CurrentWeight  *float64 `json:"current_weight"`
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -97,6 +117,9 @@ func (h *AuthHandler) MemberLogin(c *fiber.Ctx) error {
 		case errors.Is(err, services.ErrMemberInactive):
 			return utils.ErrorResponse(c, fiber.StatusForbidden,
 				"ACCOUNT_INACTIVE", "Your account has been deactivated", nil)
+		case errors.Is(err, services.ErrMemberPending):
+			return utils.ErrorResponse(c, fiber.StatusForbidden,
+				"ACCOUNT_PENDING", "Your registration is pending admin approval", nil)
 		default:
 			h.log.ErrorContext(c.UserContext(), "member login failed", "error", err)
 			return utils.ErrorResponse(c, fiber.StatusInternalServerError,
@@ -166,4 +189,56 @@ func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// RegisterMember godoc
+// @Summary     Self-registration
+// @Tags        auth
+// @Accept      json
+// @Produce     json
+// @Param       body body registerMemberRequest true "Registration details"
+// @Success     201 {object} map[string]any
+// @Failure     409 {object} map[string]any
+// @Router      /api/v1/auth/register [post]
+func (h *AuthHandler) RegisterMember(c *fiber.Ctx) error {
+	if h.memberSvc == nil {
+		return utils.ErrorResponse(c, fiber.StatusNotImplemented, "NOT_IMPLEMENTED", "Registration not configured", nil)
+	}
+	var req registerMemberRequest
+	if !parseAndValidate(c, &req) {
+		return nil
+	}
+
+	svcReq := services.RegisterMemberRequest{
+		Name:           req.Name,
+		Phone:          req.Phone,
+		Email:          req.Email,
+		Gender:         req.Gender,
+		Religion:       req.Religion,
+		NID:            req.NID,
+		PresentAddress: req.PresentAddress,
+		HeightCm:       req.HeightCm,
+		CurrentWeight:  req.CurrentWeight,
+	}
+	if req.DateOfBirth != nil {
+		t, err := time.Parse("2006-01-02", *req.DateOfBirth)
+		if err != nil {
+			return utils.ErrorResponse(c, fiber.StatusBadRequest, "BAD_REQUEST", "date_of_birth must be YYYY-MM-DD", nil)
+		}
+		svcReq.DateOfBirth = &t
+	}
+
+	member, err := h.memberSvc.RegisterMember(c.UserContext(), svcReq)
+	if err != nil {
+		if errors.Is(err, services.ErrConflict) {
+			return utils.ErrorResponse(c, fiber.StatusConflict, "CONFLICT", "Phone number already registered", nil)
+		}
+		h.log.ErrorContext(c.UserContext(), "self-registration failed", "error", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Registration failed", nil)
+	}
+
+	return utils.SuccessResponse(c, fiber.StatusCreated, fiber.Map{
+		"id":      member.ID,
+		"message": "Registration submitted, awaiting admin approval",
+	})
 }

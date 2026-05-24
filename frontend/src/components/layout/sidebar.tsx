@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { clearToken } from '@/lib/auth'
 import type { Role } from '@/types'
 import { NAV } from './nav-config'
+import { usePendingMembersCount } from '@/hooks/use-admin'
 
 interface SidebarProps {
   role: Role
@@ -26,6 +27,7 @@ export function Sidebar({ role, userName }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const items = NAV[role]
   const meta  = ROLE_META[role]
+  const { data: pendingCount } = usePendingMembersCount(role === 'admin')
 
   function logout() {
     clearToken()
@@ -92,7 +94,12 @@ export function Sidebar({ role, userName }: SidebarProps) {
                 <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r-full bg-primary" />
               )}
               {Icon && <Icon size={17} weight={active ? 'fill' : 'regular'} />}
-              {!collapsed && <span className="truncate">{item.label}</span>}
+              {!collapsed && <span className="truncate flex-1">{item.label}</span>}
+              {!collapsed && role === 'admin' && item.href === '/admin/members' && (pendingCount ?? 0) > 0 && (
+                <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-accent text-white text-[10px] font-bold px-1">
+                  {pendingCount! > 99 ? '99+' : pendingCount}
+                </span>
+              )}
             </Link>
           )
         })}

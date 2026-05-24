@@ -92,6 +92,75 @@ export function useResetPassword() {
   })
 }
 
+export function useApproveMember() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.post<{ success: boolean; data: { member: AdminMember; temp_password: string } }>(
+        `${BASE}/members/${id}/approve`,
+      )
+      return data.data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'members'] }),
+  })
+}
+
+export function useRejectMember() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.post(`${BASE}/members/${id}/reject`)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'members'] }),
+  })
+}
+
+export function usePendingMembersCount(enabled = true) {
+  return useQuery({
+    queryKey: ['admin', 'members', 'pending-count'],
+    queryFn: async () => {
+      const { data } = await api.get<{ success: boolean; data: AdminMember[]; meta?: { total: number } }>(
+        `${BASE}/members`,
+        { params: { status: 'pending', limit: 1 } },
+      )
+      return data.meta?.total ?? 0
+    },
+    enabled,
+    refetchInterval: 60_000,
+  })
+}
+
+export function useGenerateDietChart(memberId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (language: 'bn' | 'en') => {
+      const { data } = await api.post(`${BASE}/members/${memberId}/diet-chart?language=${language}`)
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'members', memberId] }),
+  })
+}
+
+export function useApproveDietChart(memberId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      await api.post(`${BASE}/members/${memberId}/diet-chart/approve`)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'members', memberId] }),
+  })
+}
+
+export function useDeclineDietChart(memberId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      await api.post(`${BASE}/members/${memberId}/diet-chart/decline`)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'members', memberId] }),
+  })
+}
+
 // ── Member subscriptions ──────────────────────────────────────────────────────
 
 export function useMemberSubscriptions(memberId: string) {

@@ -135,7 +135,7 @@ func main() {
 	}
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
-	authHandler          := handlers.NewAuthHandler(authSvc, log)
+	authHandler          := handlers.NewAuthHandlerWithMemberSvc(authSvc, memberSvc, log)
 	adminMemberHandler   := handlers.NewAdminMemberHandler(memberSvc, subSvc, aiRepo, aiSvc, log)
 	adminPlanHandler     := handlers.NewAdminPlanHandler(planSvc, log)
 	adminSubHandler      := handlers.NewAdminSubscriptionHandler(subSvc, log)
@@ -274,6 +274,7 @@ func main() {
 	auth.Post("/admin/login", authHandler.AdminLogin)
 	auth.Post("/member/login", authHandler.MemberLogin)
 	auth.Post("/refresh", authHandler.RefreshToken)
+	auth.Post("/register", authHandler.RegisterMember)
 	auth.Post("/change-password",
 		middleware.RequireAuth(jwtManager),
 		middleware.RequireRole(appauth.RoleMember),
@@ -295,6 +296,8 @@ func main() {
 	admin.Post("/members/:id/password/reset",     adminMemberHandler.ResetMemberPassword)
 	admin.Delete("/members/:id",                  adminMemberHandler.DeleteMember)
 	admin.Patch("/members/:id/ai",                 adminMemberHandler.UpdateMemberAI)
+	admin.Post("/members/:id/approve",             adminMemberHandler.ApproveMember)
+	admin.Post("/members/:id/reject",              adminMemberHandler.RejectMember)
 	admin.Post("/members/:id/diet-chart",          adminMemberHandler.GenerateMemberDietChart)
 	admin.Post("/members/:id/diet-chart/approve",  adminMemberHandler.ApproveMemberDietChart)
 	admin.Post("/members/:id/diet-chart/decline",  adminMemberHandler.DeclineMemberDietChart)

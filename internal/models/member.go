@@ -28,7 +28,8 @@ type Member struct {
 	Occupation         *string    `json:"occupation,omitempty"`
 	NID                *string    `json:"nid,omitempty"`
 	EmergencyPhone     *string    `json:"emergency_phone,omitempty"`
-	Status             string     `json:"status"` // active | inactive
+	Email              *string    `json:"email,omitempty"`
+	Status             string     `json:"status"` // active | inactive | pending | rejected
 	MustChangePassword bool       `json:"must_change_password"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`

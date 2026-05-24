@@ -11,6 +11,7 @@ import { api } from '@/lib/api'
 import { setToken } from '@/lib/auth'
 import type { ApiResponse, LoginResponse } from '@/types'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -173,7 +174,13 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-[11px] text-muted-foreground mt-6">
+        <p className="text-center text-xs text-muted-foreground mt-5">
+          New member?{' '}
+          <Link href="/register" className="text-primary font-medium hover:underline">
+            Register here
+          </Link>
+        </p>
+        <p className="text-center text-[11px] text-muted-foreground mt-3">
           Fitness Care Bagerhat · {new Date().getFullYear()}
         </p>
       </motion.div>
