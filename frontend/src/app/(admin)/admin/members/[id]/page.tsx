@@ -55,7 +55,6 @@ export default function MemberDetailPage({ params }: PageProps) {
   const [dietLang, setDietLang]     = useState<'bn' | 'en'>('bn')
   const [gymFrom,  setGymFrom]      = useState('18:00')
   const [gymTo,    setGymTo]        = useState('19:30')
-  const [location, setLocation]     = useState('Bagerhat')
   const [maxBudget, setMaxBudget]   = useState('')
   const [showApproveModal, setShowApproveModal] = useState(false)
 
@@ -365,13 +364,8 @@ export default function MemberDetailPage({ params }: PageProps) {
               />
             </div>
           </div>
-          {/* Location & Budget row */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[11px] text-muted-foreground mb-1 block">Location</label>
-              <Input value={location} onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Bagerhat" className="h-8 text-xs" />
-            </div>
+          {/* Budget row */}
+          <div>
             <div>
               <label className="text-[11px] text-muted-foreground mb-1 block">Max Budget (BDT)</label>
               <Input type="number" value={maxBudget} onChange={(e) => setMaxBudget(e.target.value)}
@@ -397,7 +391,7 @@ export default function MemberDetailPage({ params }: PageProps) {
             <Button
               size="sm"
               className="flex-1 gap-1.5 bg-primary text-white hover:bg-primary/90 text-xs h-8"
-              onClick={() => genDiet.mutate({ gym_time: gymTimeStr(), location, max_budget_bdt: maxBudget, language: dietLang })}
+              onClick={() => genDiet.mutate({ gym_time: gymTimeStr(), location: 'Bagerhat', max_budget_bdt: maxBudget, language: dietLang })}
               disabled={genDiet.isPending}
             >
               {genDiet.isPending

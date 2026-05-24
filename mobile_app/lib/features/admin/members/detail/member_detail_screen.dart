@@ -1190,7 +1190,6 @@ class _AiNutritionCardState extends ConsumerState<_AiNutritionCard> {
   String _dietLanguage = 'bn';
   TimeOfDay _gymTimeFrom = const TimeOfDay(hour: 18, minute: 0);
   TimeOfDay _gymTimeTo   = const TimeOfDay(hour: 19, minute: 30);
-  final _locationCtrl  = TextEditingController(text: 'Bagerhat');
   final _budgetCtrl    = TextEditingController();
 
   String get _gymTimeStr {
@@ -1495,8 +1494,6 @@ class _AiNutritionCardState extends ConsumerState<_AiNutritionCard> {
             ],
           ),
           const SizedBox(height: AppSpacing.s8),
-          _DietInputField(controller: _locationCtrl, label: 'লোকেশন',   hint: 'যেমন: বাগেরহাট'),
-          const SizedBox(height: AppSpacing.s8),
           _DietInputField(controller: _budgetCtrl,   label: 'সর্বোচ্চ বাজেট (BDT)', hint: 'যেমন: ২০০', isNumber: true),
           const SizedBox(height: AppSpacing.s12),
           // Generate Plan Button
@@ -1538,7 +1535,7 @@ class _AiNutritionCardState extends ConsumerState<_AiNutritionCard> {
                           member.id,
                           language: _dietLanguage,
                           gymTime: _gymTimeStr,
-                          location: _locationCtrl.text.trim(),
+                          location: 'Bagerhat',
                           maxBudgetBdt: _budgetCtrl.text.trim(),
                         );
                         ref.read(memberDetailControllerProvider(widget.screenId).notifier).load();
