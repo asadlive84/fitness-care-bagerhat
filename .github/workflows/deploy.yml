@@ -102,6 +102,8 @@ jobs:
             SUPERADMIN_API_KEY=${SUPERADMIN_API_KEY}
             AI_TEXT_API_KEY=${AI_TEXT_API_KEY}
             AI_VISION_API_KEY=${AI_VISION_API_KEY}
+            AI_TEXT_PROVIDER=gemini
+            AI_VISION_PROVIDER=gemini
             APP_ENV=production
             APP_TIMEZONE=Asia/Dhaka
             EOF

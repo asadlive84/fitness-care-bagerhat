@@ -61,6 +61,10 @@ services:
       SUPERADMIN_EMAIL:    ${SUPERADMIN_EMAIL}
       SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD}
       CORS_ALLOWED_ORIGINS: https://fitnesscare.pocketguard.store
+      AI_TEXT_PROVIDER:    gemini
+      AI_VISION_PROVIDER:  gemini
+      AI_TEXT_API_KEY:     ${AI_TEXT_API_KEY}
+      AI_VISION_API_KEY:   ${AI_VISION_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy
