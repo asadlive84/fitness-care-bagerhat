@@ -55,6 +55,18 @@ class DietChartDetailScreen extends StatelessWidget {
             .toList()
         : [];
 
+    final List<Map<String, dynamic>> workouts = isNewSchema
+        ? ((chart['workout_recommendations'] as List<dynamic>?) ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList()
+        : [];
+
+    final List<String> healthTips = isNewSchema
+        ? ((chart['health_and_medical_tips'] as List<dynamic>?) ?? [])
+            .map((e) => e.toString())
+            .toList()
+        : [];
+
     return Scaffold(
       backgroundColor: AppColors.bgDark,
       appBar: AppBar(
@@ -138,6 +150,50 @@ class DietChartDetailScreen extends StatelessWidget {
                     isLast: i == oldMeals.length - 1,
                   ),
                 ),
+
+            // ── Workout recommendations (new schema) ────────────────────────
+            if (workouts.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.s24),
+              _SectionHeader(icon: PhosphorIcons.barbell(PhosphorIconsStyle.duotone), title: 'ওয়ার্কআউট পরিকল্পনা'),
+              const SizedBox(height: AppSpacing.s12),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: workouts.length,
+                separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.s8),
+                itemBuilder: (_, i) => _WorkoutCard(workout: workouts[i]),
+              ),
+            ],
+
+            // ── Health & medical tips (new schema) ──────────────────────────
+            if (healthTips.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.s24),
+              _SectionHeader(icon: PhosphorIcons.heartbeat(PhosphorIconsStyle.duotone), title: 'স্বাস্থ্য ও চিকিৎসা পরামর্শ', color: Colors.redAccent),
+              const SizedBox(height: AppSpacing.s12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.06),
+                  borderRadius: AppSpacing.r12,
+                  border: Border.all(color: Colors.red.withOpacity(0.15)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: healthTips.map((t) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(PhosphorIcons.circle(PhosphorIconsStyle.fill), size: 5, color: Colors.redAccent.shade100),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(t, style: AppText.bodySmall.copyWith(color: Colors.white70, height: 1.4))),
+                      ],
+                    ),
+                  )).toList(),
+                ),
+              ),
+            ],
 
             // ── Budget & hydration tips (new schema) ────────────────────────
             if (tips.isNotEmpty) ...[
@@ -751,6 +807,122 @@ class _NutritionTipsCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+// ── Shared section header ─────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.icon, required this.title, this.color});
+  final IconData icon;
+  final String title;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? AppColors.primaryLight;
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: c),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: AppText.titleSmall.copyWith(
+            color: AppColors.textOnDark,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Workout card ──────────────────────────────────────────────────────────────
+
+class _WorkoutCard extends StatelessWidget {
+  const _WorkoutCard({required this.workout});
+  final Map<String, dynamic> workout;
+
+  @override
+  Widget build(BuildContext context) {
+    final name     = workout['exercise_name']?.toString() ?? '';
+    final sets     = workout['sets_and_reps']?.toString();
+    final equipment= workout['equipment_used']?.toString();
+    final muscle   = workout['target_muscle']?.toString();
+    final benefit  = workout['form_and_benefit']?.toString();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceDark,
+        borderRadius: AppSpacing.r12,
+        border: Border.all(color: Colors.white.withOpacity(0.07)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: AppText.bodyMedium.copyWith(
+                    color: AppColors.textOnDark,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (sets != null) _Tag(label: sets, color: AppColors.accentLight),
+            ],
+          ),
+          if (equipment != null || muscle != null) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                if (equipment != null) _Tag(label: '🏋️ $equipment'),
+                if (muscle    != null) _Tag(label: '💪 $muscle', color: AppColors.primaryLight),
+              ],
+            ),
+          ],
+          if (benefit != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              benefit,
+              style: AppText.bodySmall.copyWith(color: Colors.white60, height: 1.4),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Inline tag chip ───────────────────────────────────────────────────────────
+
+class _Tag extends StatelessWidget {
+  const _Tag({required this.label, this.color});
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: (color ?? AppColors.primaryLight).withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: (color ?? AppColors.primaryLight).withOpacity(0.25)),
+      ),
+      child: Text(
+        label,
+        style: AppText.labelSmall.copyWith(
+          color: color ?? AppColors.primaryLight,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

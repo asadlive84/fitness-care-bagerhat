@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { SunHorizon, Sun, Moon, Cookie, Plant, CaretDown, CaretUp, Wallet, Lightbulb } from '@phosphor-icons/react'
+import { SunHorizon, Sun, Moon, Cookie, Plant, CaretDown, CaretUp, Wallet, Lightbulb, Barbell, Heartbeat } from '@phosphor-icons/react'
 
 // ── Old schema (backward compat) ─────────────────────────────────────────────
 
@@ -40,11 +40,21 @@ interface NewMeal {
   foods?: FoodItem[]
 }
 
+interface WorkoutItem {
+  exercise_name?: string
+  equipment_used?: string
+  target_muscle?: string
+  sets_and_reps?: string
+  form_and_benefit?: string
+}
+
 interface NewChart {
-  customer_profile?: { name?: string; gender?: string; age?: number; weight_kg?: number }
+  customer_profile?: { name?: string; gender?: string; age?: number; height_cm?: number; weight_kg?: number }
   target_summary?: string
   daily_targets?: { target_calories?: number; protein_g?: number; carbs_g?: number; fat_g?: number }
   detailed_diet_chart?: NewMeal[]
+  workout_recommendations?: WorkoutItem[]
+  health_and_medical_tips?: string[]
   overall_budget_and_hydration_tips?: string[]
   total_calories?: number
   total_cost?: number
@@ -99,9 +109,11 @@ export function DietChartView({ chart, label, variant = 'default' }: Props) {
 // ── New schema renderer ───────────────────────────────────────────────────────
 
 function NewDietChartBody({ chart }: { chart: NewChart }) {
-  const targets = chart.daily_targets
-  const meals   = chart.detailed_diet_chart ?? []
-  const tips    = chart.overall_budget_and_hydration_tips ?? []
+  const targets  = chart.daily_targets
+  const meals    = chart.detailed_diet_chart ?? []
+  const workouts = chart.workout_recommendations ?? []
+  const healthTips = chart.health_and_medical_tips ?? []
+  const tips     = chart.overall_budget_and_hydration_tips ?? []
 
   return (
     <div className="space-y-4">
@@ -134,6 +146,40 @@ function NewDietChartBody({ chart }: { chart: NewChart }) {
       {meals.length > 0 && (
         <div className="space-y-2">
           {meals.map((meal, i) => <NewMealCard key={i} meal={meal} />)}
+        </div>
+      )}
+
+      {/* Workout recommendations */}
+      {workouts.length > 0 && (
+        <div className="bg-white rounded-xl border border-border p-3 space-y-2">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Barbell size={14} weight="duotone" className="text-primary" />
+            <p className="text-xs font-semibold">ওয়ার্কআউট পরিকল্পনা</p>
+          </div>
+          {workouts.map((w, i) => (
+            <div key={i} className="border border-border/60 rounded-lg p-2.5 space-y-0.5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-foreground">{w.exercise_name}</p>
+                {w.sets_and_reps && <span className="text-[10px] text-amber-600 font-medium">{w.sets_and_reps}</span>}
+              </div>
+              {w.equipment_used && <p className="text-[10px] text-muted-foreground">🏋️ {w.equipment_used}</p>}
+              {w.target_muscle  && <p className="text-[10px] text-primary/70">💪 {w.target_muscle}</p>}
+              {w.form_and_benefit && <p className="text-[10px] text-muted-foreground leading-relaxed mt-1">{w.form_and_benefit}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Health & medical tips */}
+      {healthTips.length > 0 && (
+        <div className="bg-white rounded-xl border border-border p-3 space-y-1.5">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Heartbeat size={14} weight="duotone" className="text-red-500" />
+            <p className="text-xs font-semibold">স্বাস্থ্য ও চিকিৎসা পরামর্শ</p>
+          </div>
+          {healthTips.map((tip, i) => (
+            <p key={i} className="text-xs text-muted-foreground leading-relaxed">• {tip}</p>
+          ))}
         </div>
       )}
 

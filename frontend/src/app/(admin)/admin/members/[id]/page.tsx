@@ -11,14 +11,24 @@ import {
 } from '@/hooks/use-admin'
 import { GlassCard } from '@/components/glass-card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   ArrowLeft, Phone, Key, Trash, Check, X, Copy, ShieldCheck, ShieldSlash, Brain,
   Heart, Calendar, Ruler, GenderIntersex, Briefcase, MapPin, ChatTeardropDots,
-  CheckCircle, XCircle, ForkKnife, Spinner,
+  CheckCircle, XCircle, ForkKnife, Spinner, Clock,
 } from '@phosphor-icons/react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+
+function fmt12h(t: string) {
+  if (!t) return ''
+  const [hStr, mStr] = t.split(':')
+  const h = parseInt(hStr, 10)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const h12 = h % 12 || 12
+  return `${h12}:${mStr} ${ampm}`
+}
 
 interface PageProps { params: Promise<{ id: string }> }
 
@@ -42,7 +52,17 @@ export default function MemberDetailPage({ params }: PageProps) {
   const [tempPw, setTempPw]         = useState<string | null>(null)
   const [copied, setCopied]         = useState(false)
   const [dietLang, setDietLang]     = useState<'bn' | 'en'>('bn')
+  const [gymFrom,  setGymFrom]      = useState('18:00')
+  const [gymTo,    setGymTo]        = useState('19:30')
+  const [location, setLocation]     = useState('Bagerhat')
+  const [maxBudget, setMaxBudget]   = useState('')
   const [showApproveModal, setShowApproveModal] = useState(false)
+
+  function gymTimeStr() {
+    const f = fmt12h(gymFrom)
+    const t = fmt12h(gymTo)
+    return f && t ? `${f} to ${t}` : ''
+  }
 
   async function handleDelete() {
     if (!confirm(`Delete ${member?.name}? This cannot be undone.`)) return
@@ -317,20 +337,56 @@ export default function MemberDetailPage({ params }: PageProps) {
 
       {/* Diet Chart */}
       <GlassCard className="p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-sm flex items-center gap-2">
-            <ForkKnife size={14} weight="fill" className="text-primary" /> Diet Chart
-          </h3>
-          <div className="flex items-center gap-2">
-            {/* Language toggle */}
-            <div className="flex gap-1 bg-muted/60 rounded-lg p-0.5">
+        <h3 className="font-semibold text-sm flex items-center gap-2 mb-4">
+          <ForkKnife size={14} weight="fill" className="text-primary" /> Diet Chart
+        </h3>
+
+        {/* Diet inputs */}
+        <div className="bg-muted/40 border border-border rounded-xl p-3 space-y-2.5 mb-3">
+          {/* Gym Time row */}
+          <div>
+            <label className="text-[11px] text-muted-foreground mb-1 flex items-center gap-1">
+              <Clock size={10} /> Gym Time
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={gymFrom}
+                onChange={(e) => setGymFrom(e.target.value)}
+                className="flex-1 h-8 rounded-lg border border-border bg-white px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="text-xs text-muted-foreground shrink-0">to</span>
+              <input
+                type="time"
+                value={gymTo}
+                onChange={(e) => setGymTo(e.target.value)}
+                className="flex-1 h-8 rounded-lg border border-border bg-white px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          </div>
+          {/* Location & Budget row */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[11px] text-muted-foreground mb-1 block">Location</label>
+              <Input value={location} onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. Bagerhat" className="h-8 text-xs" />
+            </div>
+            <div>
+              <label className="text-[11px] text-muted-foreground mb-1 block">Max Budget (BDT)</label>
+              <Input type="number" value={maxBudget} onChange={(e) => setMaxBudget(e.target.value)}
+                placeholder="e.g. 200" className="h-8 text-xs" />
+            </div>
+          </div>
+          {/* Language + Generate */}
+          <div className="flex items-center gap-2 pt-0.5">
+            <div className="flex gap-1 bg-white border border-border rounded-lg p-0.5">
               {(['bn', 'en'] as const).map((lang) => (
                 <button
                   key={lang}
                   onClick={() => setDietLang(lang)}
                   className={cn(
                     'px-2.5 py-1 rounded-md text-xs font-semibold transition-all',
-                    dietLang === lang ? 'bg-white shadow text-foreground' : 'text-muted-foreground',
+                    dietLang === lang ? 'bg-primary text-white shadow' : 'text-muted-foreground',
                   )}
                 >
                   {lang === 'bn' ? 'বাংলা' : 'English'}
@@ -339,8 +395,8 @@ export default function MemberDetailPage({ params }: PageProps) {
             </div>
             <Button
               size="sm"
-              className="gap-1.5 bg-primary text-white hover:bg-primary/90 text-xs h-8"
-              onClick={() => genDiet.mutate(dietLang)}
+              className="flex-1 gap-1.5 bg-primary text-white hover:bg-primary/90 text-xs h-8"
+              onClick={() => genDiet.mutate({ gym_time: gymTimeStr(), location, max_budget_bdt: maxBudget, language: dietLang })}
               disabled={genDiet.isPending}
             >
               {genDiet.isPending

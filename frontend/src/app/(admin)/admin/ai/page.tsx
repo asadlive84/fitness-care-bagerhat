@@ -7,7 +7,7 @@ import { DietChartView } from '@/components/admin/diet-chart-view'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Brain, Sparkle, Check, X, ToggleLeft, ToggleRight, MagnifyingGlass } from '@phosphor-icons/react'
+import { Brain, Sparkle, Check, X, ToggleLeft, ToggleRight, MagnifyingGlass, Clock } from '@phosphor-icons/react'
 import { useDebounce } from '@/hooks/use-debounce'
 import type { AdminMember } from '@/types/admin'
 
@@ -103,9 +103,21 @@ function DietTab({ memberId }: { memberId: string }) {
   const approve  = useApproveDietChart(memberId)
   const decline  = useDeclineDietChart(memberId)
 
-  const [gymTime,   setGymTime]   = useState('')
-  const [location,  setLocation]  = useState('')
+  const [gymFrom,   setGymFrom]   = useState('18:00')
+  const [gymTo,     setGymTo]     = useState('19:30')
+  const [location,  setLocation]  = useState('Bagerhat')
   const [maxBudget, setMaxBudget] = useState('')
+
+  function gymTimeStr() {
+    function fmt(t: string) {
+      if (!t) return ''
+      const [hStr, mStr] = t.split(':')
+      const h = parseInt(hStr, 10)
+      return `${h % 12 || 12}:${mStr} ${h >= 12 ? 'PM' : 'AM'}`
+    }
+    const f = fmt(gymFrom); const t = fmt(gymTo)
+    return f && t ? `${f} to ${t}` : ''
+  }
 
   if (isLoading) return <Skeleton className="h-64 rounded-2xl" />
   if (!member)   return null
@@ -126,41 +138,45 @@ function DietTab({ memberId }: { memberId: string }) {
       {/* Diet generation inputs */}
       <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Diet Inputs</p>
-        <div className="grid grid-cols-1 gap-2">
+        <div className="space-y-2">
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Gym Time</label>
-            <Input
-              value={gymTime}
-              onChange={(e) => setGymTime(e.target.value)}
-              placeholder="e.g. 6:00 PM to 7:30 PM"
-              className="h-9 text-sm"
-            />
+            <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+              <Clock size={10} /> Gym Time
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={gymFrom}
+                onChange={(e) => setGymFrom(e.target.value)}
+                className="flex-1 h-9 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <span className="text-xs text-muted-foreground shrink-0">to</span>
+              <input
+                type="time"
+                value={gymTo}
+                onChange={(e) => setGymTo(e.target.value)}
+                className="flex-1 h-9 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Location</label>
-            <Input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g. Bagerhat"
-              className="h-9 text-sm"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Max Daily Budget (BDT)</label>
-            <Input
-              type="number"
-              value={maxBudget}
-              onChange={(e) => setMaxBudget(e.target.value)}
-              placeholder="e.g. 200"
-              className="h-9 text-sm"
-            />
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Location</label>
+              <Input value={location} onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. Bagerhat" className="h-9 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Max Budget (BDT)</label>
+              <Input type="number" value={maxBudget} onChange={(e) => setMaxBudget(e.target.value)}
+                placeholder="e.g. 200" className="h-9 text-sm" />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Generate button */}
       <Button
-        onClick={() => generate.mutate({ gym_time: gymTime, location, max_budget_bdt: maxBudget, language: 'bn' })}
+        onClick={() => generate.mutate({ gym_time: gymTimeStr(), location, max_budget_bdt: maxBudget, language: 'bn' })}
         disabled={generate.isPending || !member.is_ai_allowed}
         className="w-full gap-2 bg-primary text-white hover:bg-primary/90"
       >

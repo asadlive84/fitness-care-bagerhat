@@ -5,6 +5,7 @@ import type {
   AdminMember, Plan, PlanWithSubscribers, PaymentSummary, AdminPayment,
   Conversation, Setting, MembersPage, Subscription,
 } from '@/types/admin'
+import type { GenerateDietChartParams } from '@/hooks/use-ai'
 import type { ChatMessage } from '@/types/member'
 
 const BASE = '/api/v1/admin'
@@ -133,8 +134,8 @@ export function usePendingMembersCount(enabled = true) {
 export function useGenerateDietChart(memberId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (language: 'bn' | 'en') => {
-      const { data } = await api.post(`${BASE}/members/${memberId}/diet-chart?language=${language}`)
+    mutationFn: async (params: GenerateDietChartParams = {}) => {
+      const { data } = await api.post(`${BASE}/members/${memberId}/diet-chart`, { language: 'bn', ...params })
       return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'members', memberId] }),

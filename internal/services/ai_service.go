@@ -34,17 +34,18 @@ func NewAIService(repo *postgres.AIRepo, cfg config.AIConfig, log *slog.Logger) 
 // changes in code are applied on the next server restart.
 func (s *AIService) SeedDefaultPrompts(ctx context.Context) error {
 	defaultPrompts := map[string]string{
-		"diet_generation_prompt": `Act as an expert Clinical Nutritionist and Fitness Coach. Your task is to generate a highly detailed, personalized diet chart based on the customer's personal profile (Name, Gender, Age, Weight), goals, specific GYM TIME, and a STRICT Max Daily Budget.
+		"diet_generation_prompt": `Act as an expert Clinical Nutritionist and Fitness Coach for a Gym App. Your task is to generate a highly detailed, personalized diet chart and workout recommendation based on the customer's personal profile (Name, Gender, Age, Height, Weight), goals, GYM TIME, and a STRICT Max Daily Budget.
 
 Every single food item must be fully organic/natural (strictly NO processed food). The final output MUST be strictly in JSON format with no additional conversational text or markdown formatting outside the JSON block.
 
 Key Requirements:
-1. STRICT BUDGET LIMIT: You are provided with a "Max Daily Budget". The sum of all item prices (total_cost) MUST be strictly less than or equal to this limit. You must creatively adjust food quantities or select cheaper organic alternatives to ensure the budget is NEVER exceeded.
-2. Dynamic Calorie Calculation: Use the provided Age, Gender, and Weight to estimate the optimal daily target calories and macros for the user's specific goal.
-3. Pricing in English: All price fields must be written in English numbers and text (e.g., "15 BDT", "40-50 BDT").
-4. Dynamic Meal Timing: Adjust the ideal_time for the "Pre-Workout" (1-1.5 hours before gym) and "Post-Workout" (within 45 mins after gym) meals based on the provided "Gym Time". Adjust the rest of the day's meals around this schedule.
-5. Item Details & Preparation: Explicitly break down what each food is made of and step-by-step instructions on how to prepare it safely.
-6. Bottom Totals: Include total_calories and total_cost at the very end of the JSON object as simple integers.
+1. STRICT BUDGET LIMIT: You are provided with a "Max Daily Budget". The sum of all item prices (total_cost) MUST be strictly less than or equal to this limit. Creatively adjust food quantities or select cheaper organic alternatives to ensure the budget is NEVER exceeded.
+2. Dynamic Calorie & BMI Calculation: Use the provided Age, Gender, Height, and Weight to estimate the optimal daily target calories, macros, and the user's BMI.
+3. Limited Equipment Workout Plan: The user attends a local gym with limited equipment (mainly stationary bike, treadmill, basic dumbbells, and barbells). Recommend the most effective exercises focusing on compound movements and available machines to achieve their goal.
+4. Health & Medical Tips: Generate specific health, medical, and injury-prevention tips tailored exactly to the user's Age, Height, Weight, and BMI status.
+5. Pricing in English: All price fields must be written in English numbers and text (e.g., "15 BDT", "40-50 BDT").
+6. Dynamic Meal Timing: Adjust the ideal_time for the "Pre-Workout" (1-1.5 hours before gym) and "Post-Workout" (within 45 mins after gym) meals based on the provided "Gym Time". Adjust the rest of the day's meals around this schedule.
+7. Bottom Totals: Include total_calories and total_cost at the very end of the JSON object as simple integers.
 
 Use the exact JSON structure below:
 {
@@ -52,9 +53,10 @@ Use the exact JSON structure below:
     "name": "Customer Name",
     "gender": "Gender",
     "age": 0,
+    "height_cm": 0,
     "weight_kg": 0
   },
-  "target_summary": "A personalized summary addressing the customer by name, explaining their calorie targets, gym time, and how the diet fits strictly within their budget limit.",
+  "target_summary": "A personalized summary addressing the customer by name, explaining their calorie targets, gym time, and how the plan fits strictly within their budget limit.",
   "daily_targets": {
     "target_calories": 0,
     "protein_g": 0,
@@ -65,13 +67,13 @@ Use the exact JSON structure below:
     {
       "meal_name": "Name of the meal",
       "ideal_time": "Suggested time range",
-      "estimated_meal_cost_range_bdt": "e.g., 50-60 BDT",
+      "estimated_meal_cost_range_bdt": "e.g., '50-60 BDT'",
       "foods": [
         {
           "item_name": "Name of the food item",
           "quantity": "Amount/Serving size",
-          "estimated_price": "Single item price in English (e.g., 20 BDT)",
-          "price_range": "Price range in English (e.g., 15-25 BDT)",
+          "estimated_price": "Single item price in English (e.g., '20 BDT')",
+          "price_range": "Price range in English (e.g., '15-25 BDT')",
           "ingredients_and_nature": "What it is made of and its organic source details",
           "preparation_steps": "Detailed step-by-step instructions",
           "nutritional_benefit": "Why this is included for the customer's goal"
@@ -79,6 +81,19 @@ Use the exact JSON structure below:
       ],
       "estimated_meal_calories": 0
     }
+  ],
+  "workout_recommendations": [
+    {
+      "exercise_name": "Name of the exercise (e.g., Dumbbell Bench Press, Treadmill Jogging)",
+      "equipment_used": "e.g., Dumbbells, Treadmill, Bodyweight",
+      "target_muscle": "Primary muscle group targeted",
+      "sets_and_reps": "e.g., 3 sets of 10-12 reps",
+      "form_and_benefit": "Brief instruction on correct form and why it's recommended"
+    }
+  ],
+  "health_and_medical_tips": [
+    "Specific health/medical tip 1 based on the user's BMI, weight, and height",
+    "Specific medical tip 2 regarding joint care, age-specific recovery, or injury prevention"
   ],
   "overall_budget_and_hydration_tips": [
     "Tip 1 regarding grocery shopping within budget",
@@ -175,8 +190,8 @@ func (s *AIService) GenerateDietChart(ctx context.Context, member *models.Member
 	}
 
 	userData := fmt.Sprintf(
-		"- Customer Name: %s\n- Gender: %s\n- Age: %s\n- Weight: %s\n- Height: %s\n- User Goal: %s\n- Physical Activities/Hobbies: %s\n- Current Location: %s\n- Max Daily Budget: %s BDT\n- Gym Time: %s\n- Language of Text Fields inside JSON: Bengali (বাংলা), BUT all price values must be in English.",
-		member.Name, member.Gender, ageVal, weightVal, heightVal, goalVal, hobbiesVal, locationVal, maxBudgetVal, gymTimeVal,
+		"- Customer Name: %s\n- Gender: %s\n- Age: %s\n- Height: %s\n- Weight: %s\n- User Goal: %s\n- Physical Activities/Hobbies: %s\n- Current Location: %s\n- Gym Environment: Local gym with limited equipment (Treadmill, Stationary Bike, basic Dumbbells and Barbells)\n- Max Daily Budget: %s BDT\n- Gym Time: %s\n- Language of Text Fields inside JSON: Bengali (বাংলা), BUT all price values must be in English.",
+		member.Name, member.Gender, ageVal, heightVal, weightVal, goalVal, hobbiesVal, locationVal, maxBudgetVal, gymTimeVal,
 	)
 
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{

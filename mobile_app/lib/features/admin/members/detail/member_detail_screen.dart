@@ -1187,9 +1187,36 @@ class _AiNutritionCardState extends ConsumerState<_AiNutritionCard> {
   bool _isGeneratingDiet = false;
   bool _isApprovingDeclining = false;
   String _dietLanguage = 'bn';
-  final _gymTimeCtrl   = TextEditingController();
-  final _locationCtrl  = TextEditingController();
+  TimeOfDay _gymTimeFrom = const TimeOfDay(hour: 18, minute: 0);
+  TimeOfDay _gymTimeTo   = const TimeOfDay(hour: 19, minute: 30);
+  final _locationCtrl  = TextEditingController(text: 'Bagerhat');
   final _budgetCtrl    = TextEditingController();
+
+  String get _gymTimeStr {
+    String fmt(TimeOfDay t) {
+      final h = t.hourOfPeriod == 0 ? 12 : t.hourOfPeriod;
+      final m = t.minute.toString().padLeft(2, '0');
+      final period = t.period == DayPeriod.am ? 'AM' : 'PM';
+      return '$h:$m $period';
+    }
+    return '${fmt(_gymTimeFrom)} to ${fmt(_gymTimeTo)}';
+  }
+
+  Future<void> _pickTime(bool isFrom) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: isFrom ? _gymTimeFrom : _gymTimeTo,
+      builder: (ctx, child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: false),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isFrom) _gymTimeFrom = picked; else _gymTimeTo = picked;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1453,7 +1480,19 @@ class _AiNutritionCardState extends ConsumerState<_AiNutritionCard> {
           ),
           const SizedBox(height: AppSpacing.s16),
           // Diet inputs
-          _DietInputField(controller: _gymTimeCtrl,  label: 'জিম টাইম', hint: 'যেমন: সন্ধ্যা ৬:০০ – ৭:৩০'),
+          // Gym time — from / to pickers
+          Text('জিম টাইম', style: AppText.labelMedium.copyWith(color: AppColors.textSecondary)),
+          const SizedBox(height: AppSpacing.s4),
+          Row(
+            children: [
+              Expanded(child: _TimePickerButton(label: 'শুরু', time: _gymTimeFrom, onTap: () => _pickTime(true))),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text('→', style: AppText.bodyMedium.copyWith(color: AppColors.textHint)),
+              ),
+              Expanded(child: _TimePickerButton(label: 'শেষ', time: _gymTimeTo, onTap: () => _pickTime(false))),
+            ],
+          ),
           const SizedBox(height: AppSpacing.s8),
           _DietInputField(controller: _locationCtrl, label: 'লোকেশন',   hint: 'যেমন: বাগেরহাট'),
           const SizedBox(height: AppSpacing.s8),
@@ -1497,7 +1536,7 @@ class _AiNutritionCardState extends ConsumerState<_AiNutritionCard> {
                         await ref.read(memberRepositoryProvider).generateDietChart(
                           member.id,
                           language: _dietLanguage,
-                          gymTime: _gymTimeCtrl.text.trim(),
+                          gymTime: _gymTimeStr,
                           location: _locationCtrl.text.trim(),
                           maxBudgetBdt: _budgetCtrl.text.trim(),
                         );
@@ -1858,11 +1897,49 @@ class _DietInputField extends StatelessWidget {
               borderSide: BorderSide(color: AppColors.primary, width: 1.5),
             ),
             filled: true,
-            fillColor: AppColors.surface,
+            fillColor: Colors.white,
           ),
           style: AppText.bodySmall,
         ),
       ],
+    );
+  }
+}
+
+// ── Time picker button ────────────────────────────────────────────────────────
+
+class _TimePickerButton extends StatelessWidget {
+  const _TimePickerButton({required this.label, required this.time, required this.onTap});
+  final String label;
+  final TimeOfDay time;
+  final VoidCallback onTap;
+
+  String _fmt(TimeOfDay t) {
+    final h = t.hourOfPeriod == 0 ? 12 : t.hourOfPeriod;
+    final m = t.minute.toString().padLeft(2, '0');
+    final period = t.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$h:$m $period';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: AppText.labelSmall.copyWith(color: AppColors.textSecondary)),
+            Text(_fmt(time), style: AppText.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
     );
   }
 }
