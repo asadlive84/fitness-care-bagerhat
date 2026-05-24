@@ -13,6 +13,7 @@ import { GlassCard } from '@/components/glass-card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DietChartView } from '@/components/admin/diet-chart-view'
 import {
   ArrowLeft, Phone, Key, Trash, Check, X, Copy, ShieldCheck, ShieldSlash, Brain,
   Heart, Calendar, Ruler, GenderIntersex, Briefcase, MapPin, ChatTeardropDots,
@@ -420,7 +421,7 @@ export default function MemberDetailPage({ params }: PageProps) {
                 </Button>
               </div>
             </div>
-            <DietChartPreview data={member.pending_diet_chart_json} />
+            <DietChartView chart={member.pending_diet_chart_json as Record<string, unknown>} />
           </div>
         )}
 
@@ -428,7 +429,7 @@ export default function MemberDetailPage({ params }: PageProps) {
         {member.diet_chart_json ? (
           <div>
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">Current Approved Diet</p>
-            <DietChartPreview data={member.diet_chart_json} />
+            <DietChartView chart={member.diet_chart_json as Record<string, unknown>} />
           </div>
         ) : !member.pending_diet_chart_json && (
           <p className="text-sm text-muted-foreground text-center py-6">No diet chart yet. Generate one above.</p>
@@ -470,28 +471,6 @@ export default function MemberDetailPage({ params }: PageProps) {
 
 // ── Tiny helpers ──────────────────────────────────────────────────────────────
 
-function DietChartPreview({ data }: { data: unknown }) {
-  let parsed: Record<string, unknown> | null = null
-  try {
-    parsed = typeof data === 'string' ? JSON.parse(data) : (data as Record<string, unknown>)
-  } catch { /* ignore */ }
-
-  if (!parsed) return <pre className="text-xs text-muted-foreground overflow-auto max-h-64">{JSON.stringify(data, null, 2)}</pre>
-
-  return (
-    <div className="space-y-3 text-sm max-h-80 overflow-y-auto pr-1">
-      {Object.entries(parsed).map(([key, val]) => (
-        <div key={key} className="rounded-lg bg-white/50 border border-border/40 px-3 py-2.5">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">{key.replace(/_/g, ' ')}</p>
-          {typeof val === 'object' && val !== null
-            ? <pre className="text-xs text-foreground whitespace-pre-wrap">{JSON.stringify(val, null, 2)}</pre>
-            : <p className="text-xs text-foreground">{String(val)}</p>
-          }
-        </div>
-      ))}
-    </div>
-  )
-}
 
 function fmtDate(s?: string | null): string | undefined {
   if (!s) return undefined

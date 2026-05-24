@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { SubscriptionCard } from '@/components/member/subscription-card'
 import { WeightChart } from '@/components/member/weight-chart'
 import { MessageBanners } from '@/components/member/message-banners'
-import { Leaf, ChatText } from '@phosphor-icons/react'
+import { Leaf, ChatText, ArrowRight } from '@phosphor-icons/react'
 import Link from 'next/link'
 
 export default function MemberDashboard() {
@@ -73,19 +73,25 @@ export default function MemberDashboard() {
       )}
 
       {/* Diet plan quick card */}
-      {member?.diet_chart && Object.keys(member.diet_chart).length > 0 ? (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-          <Leaf size={20} className="text-green-600 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-green-800">Active Nutrition Plan</p>
-            <p className="text-xs text-green-600 truncate">
-              {(member.diet_chart as { daily_calories?: number }).daily_calories
-                ? `${(member.diet_chart as { daily_calories: number }).daily_calories} kcal daily`
-                : 'View your diet chart'}
-            </p>
-          </div>
-        </div>
-      ) : null}
+      {member?.diet_chart && Object.keys(member.diet_chart).length > 0 && (() => {
+        const c = member.diet_chart
+        const isNew = 'detailed_diet_chart' in c
+        const kcal = isNew
+          ? (c as { daily_targets?: { target_calories?: number } }).daily_targets?.target_calories
+          : (c as { daily_calories?: number }).daily_calories
+        return (
+          <Link href="/member/diet-chart" className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 hover:bg-green-100 transition-colors">
+            <Leaf size={20} className="text-green-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-green-800">Active Nutrition Plan</p>
+              <p className="text-xs text-green-600 truncate">
+                {kcal ? `${kcal} kcal daily · View full plan` : 'View your diet chart'}
+              </p>
+            </div>
+            <ArrowRight size={16} className="text-green-600 shrink-0" />
+          </Link>
+        )
+      })()}
 
       {/* Messages shortcut */}
       <Link

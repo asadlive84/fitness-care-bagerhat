@@ -9,10 +9,11 @@ export interface NavItem {
 export const NAV: Record<Role, NavItem[]> = {
   member: [
     { label: 'Home',         href: '/member/dashboard',     icon: 'House' },
+    { label: 'Diet',         href: '/member/diet-chart',    icon: 'ForkKnife' },
     { label: 'Messages',     href: '/member/messages',      icon: 'ChatText' },
     { label: 'Subscription', href: '/member/subscription',  icon: 'CreditCard' },
-    { label: 'Logs',         href: '/member/logs',          icon: 'ChartLine' },
     { label: 'Profile',      href: '/member/profile',       icon: 'User' },
+    { label: 'Logs',         href: '/member/logs',          icon: 'ChartLine' },
   ],
   admin: [
     { label: 'Dashboard',    href: '/admin/dashboard',      icon: 'SquaresFour' },
