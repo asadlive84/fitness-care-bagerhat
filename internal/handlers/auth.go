@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -213,6 +214,11 @@ func (h *AuthHandler) RegisterMember(c *fiber.Ctx) error {
 	dob, err := time.Parse("2006-01-02", req.DateOfBirth)
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "BAD_REQUEST", "date_of_birth must be YYYY-MM-DD", nil)
+	}
+	ageYears := int(time.Since(dob).Hours() / 8766) // 8766 h ≈ 1 year
+	if ageYears < 5 {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "INVALID_AGE",
+			fmt.Sprintf("Age must be at least 5 years. You entered %d year(s) old.", ageYears), nil)
 	}
 	heightCm := req.HeightCm
 	weight := req.CurrentWeight
