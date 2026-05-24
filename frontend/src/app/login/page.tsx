@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, FormEvent, useEffect } from 'react'
+import { useState, FormEvent, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Eye, EyeSlash, Plant, Warning } from '@phosphor-icons/react'
@@ -13,7 +13,8 @@ import type { ApiResponse, LoginResponse } from '@/types'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
-export default function LoginPage() {
+// Wrapped in Suspense below because useSearchParams() requires it for static builds
+function LoginForm() {
   const router      = useRouter()
   const params      = useSearchParams()
   const [identifier, setIdentifier] = useState('')
@@ -191,5 +192,13 @@ export default function LoginPage() {
         </p>
       </motion.div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }
