@@ -459,7 +459,7 @@ export default function LandingPage() {
               ডায়েট চার্ট, ওয়ার্কআউট লগ এবং আরও অনেক কিছু হাতের মুঠোয়।
             </p>
             <a
-              href={process.env.NEXT_PUBLIC_APK_URL ?? '#contact'}
+              href="https://drive.google.com/drive/folders/1_rmlQSD9lmjuwAwyQrjNJQ8Mt2xF3XQK"
               className="inline-flex items-center gap-2 px-7 py-3 rounded-full bg-white text-[#e65000] font-bold text-sm hover:bg-[#fff8f5] transition shadow-lg"
             >
               Android APK ডাউনলোড করুন
@@ -501,6 +501,7 @@ export default function LandingPage() {
                 <li><a href="#services" className="hover:text-white transition">আমাদের সেবা</a></li>
                 <li><a href="#plans" className="hover:text-white transition">মেম্বারশিপ প্ল্যান</a></li>
                 <li><Link href="/login" className="hover:text-white transition">সদস্য লগইন</Link></li>
+                <li><a href="https://drive.google.com/drive/folders/1_rmlQSD9lmjuwAwyQrjNJQ8Mt2xF3XQK" className="hover:text-white transition">অ্যাপ ডাউনলোড</a></li>
               </ul>
             </div>
 
