@@ -50,16 +50,17 @@ type changePasswordRequest struct {
 }
 
 type registerMemberRequest struct {
-	Name           string  `json:"name"            validate:"required,min=2,max=100"`
-	Phone          string  `json:"phone"           validate:"required,min=10,max=15"`
-	Email          *string `json:"email"`
-	Gender         string  `json:"gender"          validate:"required,oneof=Male Female Other"`
-	Religion       *string `json:"religion"`
-	DateOfBirth    *string `json:"date_of_birth"`  // YYYY-MM-DD
-	NID            *string `json:"nid"`
-	PresentAddress *string `json:"present_address"`
-	HeightCm       *float64 `json:"height_cm"`
-	CurrentWeight  *float64 `json:"current_weight"`
+	Name           string   `json:"name"            validate:"required,min=2,max=100"`
+	Phone          string   `json:"phone"           validate:"required,min=10,max=15"`
+	Email          *string  `json:"email"`
+	Gender         string   `json:"gender"          validate:"required,oneof=Male Female Other"`
+	Religion       *string  `json:"religion"`
+	DateOfBirth    string   `json:"date_of_birth"   validate:"required"` // YYYY-MM-DD
+	NID            *string  `json:"nid"`
+	PresentAddress string   `json:"present_address" validate:"required,min=3"`
+	BloodGroup     string   `json:"blood_group"     validate:"required,oneof=A+ A- B+ B- AB+ AB- O+ O-"`
+	HeightCm       float64  `json:"height_cm"       validate:"required,gt=0"`
+	CurrentWeight  float64  `json:"current_weight"  validate:"required,gt=0"`
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -209,6 +210,14 @@ func (h *AuthHandler) RegisterMember(c *fiber.Ctx) error {
 		return nil
 	}
 
+	dob, err := time.Parse("2006-01-02", req.DateOfBirth)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "BAD_REQUEST", "date_of_birth must be YYYY-MM-DD", nil)
+	}
+	heightCm := req.HeightCm
+	weight := req.CurrentWeight
+	presentAddr := req.PresentAddress
+	bloodGroup := req.BloodGroup
 	svcReq := services.RegisterMemberRequest{
 		Name:           req.Name,
 		Phone:          req.Phone,
@@ -216,16 +225,11 @@ func (h *AuthHandler) RegisterMember(c *fiber.Ctx) error {
 		Gender:         req.Gender,
 		Religion:       req.Religion,
 		NID:            req.NID,
-		PresentAddress: req.PresentAddress,
-		HeightCm:       req.HeightCm,
-		CurrentWeight:  req.CurrentWeight,
-	}
-	if req.DateOfBirth != nil {
-		t, err := time.Parse("2006-01-02", *req.DateOfBirth)
-		if err != nil {
-			return utils.ErrorResponse(c, fiber.StatusBadRequest, "BAD_REQUEST", "date_of_birth must be YYYY-MM-DD", nil)
-		}
-		svcReq.DateOfBirth = &t
+		PresentAddress: &presentAddr,
+		BloodGroup:     &bloodGroup,
+		HeightCm:       &heightCm,
+		CurrentWeight:  &weight,
+		DateOfBirth:    &dob,
 	}
 
 	member, err := h.memberSvc.RegisterMember(c.UserContext(), svcReq)

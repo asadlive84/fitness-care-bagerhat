@@ -241,6 +241,7 @@ type RegisterMemberRequest struct {
 	DateOfBirth    *time.Time
 	NID            *string
 	PresentAddress *string
+	BloodGroup     *string
 	HeightCm       *float64
 	CurrentWeight  *float64
 }
@@ -308,6 +309,7 @@ func (s *MemberService) RegisterMember(ctx context.Context, req RegisterMemberRe
 		DateOfBirth:    req.DateOfBirth,
 		NID:            req.NID,
 		PresentAddress: req.PresentAddress,
+		BloodGroup:     req.BloodGroup,
 		HeightCm:       req.HeightCm,
 		CurrentWeight:  req.CurrentWeight,
 		JoinDate:       time.Now(),

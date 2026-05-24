@@ -11,11 +11,6 @@ import { Label } from '@/components/ui/label'
 import { api } from '@/lib/api'
 import type { ApiResponse } from '@/types'
 
-function toNumber(v: string): number | undefined {
-  const n = parseFloat(v)
-  return isNaN(n) ? undefined : n
-}
-
 export default function RegisterPage() {
   const router = useRouter()
 
@@ -28,6 +23,7 @@ export default function RegisterPage() {
     date_of_birth: '',
     nid: '',
     present_address: '',
+    blood_group: '',
     height_ft: '',
     height_in: '',
     current_weight: '',
@@ -45,25 +41,37 @@ export default function RegisterPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+
+    // Height validation
+    const ft = parseFloat(form.height_ft) || 0
+    const inches = parseFloat(form.height_in) || 0
+    const heightCm = Math.round((ft * 12 + inches) * 2.54 * 10) / 10
+    if (heightCm <= 0) {
+      setError('Please enter your height.')
+      return
+    }
+
+    const weight = parseFloat(form.current_weight)
+    if (!weight || weight <= 0) {
+      setError('Please enter your weight.')
+      return
+    }
+
     setLoading(true)
     try {
-      // Convert ft+in → cm
-      const ft = parseFloat(form.height_ft) || 0
-      const inches = parseFloat(form.height_in) || 0
-      const heightCm = ft > 0 || inches > 0 ? Math.round((ft * 12 + inches) * 2.54 * 10) / 10 : undefined
-
-      const payload: Record<string, unknown> = {
-        name:    form.name,
-        phone:   form.phone,
-        gender:  form.gender,
+      const payload = {
+        name:            form.name,
+        phone:           form.phone,
+        gender:          form.gender,
+        date_of_birth:   form.date_of_birth,
+        present_address: form.present_address,
+        blood_group:     form.blood_group,
+        height_cm:       heightCm,
+        current_weight:  weight,
+        ...(form.email    && { email:    form.email }),
+        ...(form.religion && { religion: form.religion }),
+        ...(form.nid      && { nid:      form.nid }),
       }
-      if (form.email)           payload.email           = form.email
-      if (form.religion)        payload.religion        = form.religion
-      if (form.date_of_birth)   payload.date_of_birth   = form.date_of_birth
-      if (form.nid)             payload.nid             = form.nid
-      if (form.present_address) payload.present_address = form.present_address
-      if (heightCm)             payload.height_cm       = heightCm
-      if (form.current_weight)  payload.current_weight  = toNumber(form.current_weight)
 
       const { data } = await api.post<ApiResponse<{ message: string }>>('/api/v1/auth/register', payload)
       if (!data.success) throw new Error(data.error?.message ?? 'Registration failed')
@@ -103,6 +111,8 @@ export default function RegisterPage() {
     )
   }
 
+  const selectCls = "w-full h-11 rounded-md border border-input bg-white/60 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-10 relative overflow-hidden">
       <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-primary/8 blur-3xl pointer-events-none" />
@@ -125,6 +135,7 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
             {/* Full Name */}
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">Full Name *</Label>
@@ -146,50 +157,38 @@ export default function RegisterPage() {
             {/* Gender */}
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">Gender *</Label>
-              <select
-                value={form.gender}
-                onChange={set('gender')}
-                required
-                className="w-full h-11 rounded-md border border-input bg-white/60 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-              >
+              <select value={form.gender} onChange={set('gender')} required className={selectCls}>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
                 <option value="Other">Other</option>
               </select>
             </div>
 
-            {/* Religion */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">Religion</Label>
-              <select
-                value={form.religion}
-                onChange={set('religion')}
-                className="w-full h-11 rounded-md border border-input bg-white/60 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-              >
-                <option value="">— Select —</option>
-                <option value="Islam">Islam</option>
-                <option value="Christianity">Christianity</option>
-                <option value="Hinduism">Hinduism</option>
-                <option value="Buddhism">Buddhism</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-
             {/* Date of Birth */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">Date of Birth</Label>
-              <Input value={form.date_of_birth} onChange={set('date_of_birth')} type="date" className="h-11 bg-white/60" />
+              <Label className="text-xs font-medium text-muted-foreground">Date of Birth *</Label>
+              <Input value={form.date_of_birth} onChange={set('date_of_birth')} type="date" required className="h-11 bg-white/60" />
             </div>
 
-            {/* NID */}
+            {/* Blood Group */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">NID / National ID</Label>
-              <Input value={form.nid} onChange={set('nid')} placeholder="1234567890" className="h-11 bg-white/60" />
+              <Label className="text-xs font-medium text-muted-foreground">Blood Group *</Label>
+              <select value={form.blood_group} onChange={set('blood_group')} required className={selectCls}>
+                <option value="">— Select —</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </select>
             </div>
 
             {/* Height */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">Height</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Height *</Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Input
@@ -199,6 +198,7 @@ export default function RegisterPage() {
                     type="number"
                     min={0}
                     max={9}
+                    required
                     className="h-11 bg-white/60 pr-8"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">ft</span>
@@ -220,7 +220,7 @@ export default function RegisterPage() {
 
             {/* Weight */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">Weight (kg)</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Weight (kg) *</Label>
               <Input
                 value={form.current_weight}
                 onChange={set('current_weight')}
@@ -229,19 +229,41 @@ export default function RegisterPage() {
                 min={20}
                 max={300}
                 step="0.1"
+                required
                 className="h-11 bg-white/60"
               />
+            </div>
+
+            {/* Religion */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Religion</Label>
+              <select value={form.religion} onChange={set('religion')} className={selectCls}>
+                <option value="">— Select —</option>
+                <option value="Islam">Islam</option>
+                <option value="Christianity">Christianity</option>
+                <option value="Hinduism">Hinduism</option>
+                <option value="Buddhism">Buddhism</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            {/* NID */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">NID / National ID</Label>
+              <Input value={form.nid} onChange={set('nid')} placeholder="1234567890" className="h-11 bg-white/60" />
             </div>
           </div>
 
           {/* Address — full width */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">Present Address</Label>
+            <Label className="text-xs font-medium text-muted-foreground">Present Address *</Label>
             <textarea
               value={form.present_address}
               onChange={set('present_address')}
               placeholder="House, Road, Area, City..."
               rows={2}
+              required
+              minLength={3}
               className="w-full rounded-md border border-input bg-white/60 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
             />
           </div>
