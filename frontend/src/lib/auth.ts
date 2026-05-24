@@ -17,6 +17,21 @@ export function clearToken(): void {
   localStorage.removeItem('fc_token')
 }
 
+export function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem('fc_refresh_token')
+}
+
+export function setRefreshToken(token: string): void {
+  localStorage.setItem('fc_refresh_token', token)
+}
+
+export function clearAllTokens(): void {
+  localStorage.removeItem('fc_token')
+  localStorage.removeItem('fc_refresh_token')
+  document.cookie = 'fc_token=; path=/; max-age=0'
+}
+
 export function decodeToken(token: string): JWTPayload | null {
   try {
     const payload = token.split('.')[1]

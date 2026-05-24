@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { api } from '@/lib/api'
-import { setToken } from '@/lib/auth'
+import { setToken, setRefreshToken } from '@/lib/auth'
 import type { ApiResponse, LoginResponse } from '@/types'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -54,6 +54,9 @@ function LoginForm() {
 
       setToken(token)
       document.cookie = `fc_token=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
+
+      const refreshToken = (data.data as unknown as { refresh_token?: string })?.refresh_token
+      if (refreshToken) setRefreshToken(refreshToken)
 
       const { decodeToken, roleHomePath } = await import('@/lib/auth')
       const decoded = decodeToken(token)
