@@ -58,7 +58,9 @@ function LoginForm() {
       const { decodeToken, roleHomePath } = await import('@/lib/auth')
       const decoded = decodeToken(token)
       const resolvedRole = decoded?.role ?? role
-      router.replace(roleHomePath(resolvedRole))
+      // Full page navigation so the browser includes the fresh cookie in the
+      // request and the middleware can authenticate the superadmin correctly.
+      window.location.href = roleHomePath(resolvedRole)
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: ApiResponse<unknown> } })?.response?.data?.error?.message

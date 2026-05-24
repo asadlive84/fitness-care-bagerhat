@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Routes accessible without a token
 const PUBLIC_PATHS = ['/', '/login', '/register']
 
 const ROLE_PREFIX: Record<string, string> = {
   admin:      '/admin',
   member:     '/member',
   superadmin: '/superadmin',
+}
+
+const ROLE_HOME: Record<string, string> = {
+  admin:      '/admin/dashboard',
+  member:     '/member/dashboard',
+  superadmin: '/superadmin/overview',
 }
 
 function decodeJWT(token: string) {
@@ -22,33 +27,42 @@ function decodeJWT(token: string) {
   }
 }
 
+function isPublic(pathname: string) {
+  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
+}
+
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-
-  // Allow public paths
-  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
-    return NextResponse.next()
-  }
-
   const token = request.cookies.get('fc_token')?.value
 
+  // ── Unauthenticated ────────────────────────────────────────────────────────
   if (!token) {
-    // Unauthenticated → send to landing page
+    if (isPublic(pathname)) return NextResponse.next()
     return NextResponse.redirect(new URL('/', request.url))
   }
 
   const payload = decodeJWT(token)
 
+  // ── Invalid / expired token ────────────────────────────────────────────────
   if (!payload || Date.now() / 1000 > payload.exp) {
     const res = NextResponse.redirect(new URL('/', request.url))
     res.cookies.delete('fc_token')
     return res
   }
 
-  // Authenticated user on wrong role prefix → redirect to their own dashboard
+  const home = ROLE_HOME[payload.role]
+
+  // ── Authenticated on a public page (login, register, landing) → dashboard ──
+  if (isPublic(pathname)) {
+    return home
+      ? NextResponse.redirect(new URL(home, request.url))
+      : NextResponse.next()
+  }
+
+  // ── Authenticated on wrong role prefix → correct dashboard ─────────────────
   const allowed = ROLE_PREFIX[payload.role]
   if (allowed && !pathname.startsWith(allowed)) {
-    return NextResponse.redirect(new URL(allowed + '/dashboard', request.url))
+    return NextResponse.redirect(new URL(home ?? allowed + '/dashboard', request.url))
   }
 
   return NextResponse.next()
