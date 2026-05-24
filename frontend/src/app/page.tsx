@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
   Barbell, Heart, Lightning, Users, ChartLineUp,
-  Phone, MapPin, ArrowRight, CheckCircle,
-  Robot, Trophy, Timer, InstagramLogo, FacebookLogo,
-  List, X, Star, AppleLogo,
+  ArrowRight, CheckCircle,
+  Robot, Trophy, Timer, Star, AppleLogo,
 } from '@phosphor-icons/react'
 import { getRole, roleHomePath } from '@/lib/auth'
 import { api } from '@/lib/api'
+import { PublicHeader } from '@/components/public-header'
+import { PublicFooter } from '@/components/public-footer'
 
 interface Plan {
   id: string
@@ -82,7 +83,6 @@ function durationLabel(days: number): string {
 
 export default function LandingPage() {
   const [dashPath, setDashPath] = useState<string | null>(null)
-  const [menuOpen, setMenuOpen] = useState(false)
   const [plans, setPlans]       = useState<Plan[]>([])
 
   useEffect(() => {
@@ -96,92 +96,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#F5F7F0] overflow-x-hidden" lang="bn">
 
-      {/* ── Navbar ─────────────────────────────────── */}
-      <header className="fixed top-0 inset-x-0 z-50 glass-strong border-b border-white/30">
-        <nav className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#1B5E20] flex items-center justify-center">
-              <Barbell size={18} weight="bold" className="text-white" />
-            </div>
-            <span className="font-bold text-[#1B5E20] text-sm leading-tight">
-              ফিটনেস কেয়ার<br />
-              <span className="text-xs font-medium text-[#4C7A4F]">বাগেরহাট</span>
-            </span>
-          </div>
-
-          {/* Desktop nav */}
-          <div className="hidden sm:flex items-center gap-4 text-sm font-medium text-[#3a5c3f]">
-            <a href="#services" className="hover:text-[#1B5E20]">সেবাসমূহ</a>
-            <a href="#plans" className="hover:text-[#1B5E20]">মেম্বারশিপ</a>
-            <a href="#contact" className="hover:text-[#1B5E20]">যোগাযোগ</a>
-            {dashPath ? (
-              <Link
-                href={dashPath}
-                className="px-4 py-1.5 rounded-full bg-[#1B5E20] text-white text-xs font-semibold hover:bg-[#155218] transition"
-              >
-                ড্যাশবোর্ড
-              </Link>
-            ) : (
-              <>
-                <Link href="/login?role=admin" className="hover:text-[#1B5E20] text-xs">এডমিন</Link>
-                <Link href="/login?role=superadmin" className="hover:text-[#1B5E20] text-xs">সুপারঅ্যাডমিন</Link>
-                <Link
-                  href="/register"
-                  className="px-4 py-1.5 rounded-full border border-[#1B5E20] text-[#1B5E20] text-xs font-semibold hover:bg-[#1B5E20] hover:text-white transition"
-                >
-                  নিবন্ধন
-                </Link>
-                <Link
-                  href="/login"
-                  className="px-4 py-1.5 rounded-full bg-[#1B5E20] text-white text-xs font-semibold hover:bg-[#155218] transition"
-                >
-                  লগইন
-                </Link>
-              </>
-            )}
-          </div>
-
-          {/* Mobile hamburger */}
-          <button
-            className="sm:hidden p-2 rounded-lg text-[#1B5E20]"
-            onClick={() => setMenuOpen(v => !v)}
-            aria-label="মেনু"
-          >
-            {menuOpen ? <X size={22} /> : <List size={22} />}
-          </button>
-        </nav>
-
-        {/* Mobile menu */}
-        {menuOpen && (
-          <div className="sm:hidden glass-strong border-t border-white/30 px-4 pb-4 flex flex-col gap-2 text-sm font-medium text-[#3a5c3f]">
-            <a href="#services" onClick={() => setMenuOpen(false)} className="py-2 border-b border-[#e0e8e1]">সেবাসমূহ</a>
-            <a href="#plans" onClick={() => setMenuOpen(false)} className="py-2 border-b border-[#e0e8e1]">মেম্বারশিপ</a>
-            <a href="#contact" onClick={() => setMenuOpen(false)} className="py-2 border-b border-[#e0e8e1]">যোগাযোগ</a>
-            {dashPath ? (
-              <Link href={dashPath} className="py-2.5 rounded-full bg-[#1B5E20] text-white text-center text-xs font-semibold mt-1">
-                ড্যাশবোর্ড
-              </Link>
-            ) : (
-              <>
-                <Link href="/login?role=admin" onClick={() => setMenuOpen(false)} className="py-2 border-b border-[#e0e8e1] text-[#3a5c3f]">
-                  এডমিন লগইন
-                </Link>
-                <Link href="/login?role=superadmin" onClick={() => setMenuOpen(false)} className="py-2 border-b border-[#e0e8e1] text-[#3a5c3f]">
-                  সুপারঅ্যাডমিন লগইন
-                </Link>
-                <div className="flex flex-col gap-2 mt-1">
-                  <Link href="/register" className="py-2.5 rounded-full border border-[#1B5E20] text-[#1B5E20] text-center text-xs font-semibold">
-                    নিবন্ধন করুন
-                  </Link>
-                  <Link href="/login" className="py-2.5 rounded-full bg-[#1B5E20] text-white text-center text-xs font-semibold">
-                    লগইন করুন
-                  </Link>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </header>
+      <PublicHeader />
 
       {/* ── Hero ───────────────────────────────────── */}
       <section className="relative min-h-screen flex flex-col justify-center pt-14 overflow-hidden">
@@ -504,66 +419,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Contact / Footer ───────────────────────── */}
-      <footer id="contact" className="bg-[#0f2d12] text-white py-12">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 pb-8 border-b border-white/10">
-            {/* Brand */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-lg bg-[#1B5E20] flex items-center justify-center">
-                  <Barbell size={18} weight="bold" className="text-white" />
-                </div>
-                <span className="font-bold text-white">ফিটনেস কেয়ার বাগেরহাট</span>
-              </div>
-              <p className="text-white/50 text-xs leading-relaxed">
-                বাগেরহাটের প্রিমিয়াম ফিটনেস সেন্টার — আপনার সুস্থ ও সুখী জীবনের অংশীদার।
-              </p>
-              <div className="flex gap-3 mt-4">
-                <a href="#" className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-[#1B5E20] transition">
-                  <FacebookLogo size={16} />
-                </a>
-                <a href="#" className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-[#1B5E20] transition">
-                  <InstagramLogo size={16} />
-                </a>
-              </div>
-            </div>
-
-            {/* Links */}
-            <div>
-              <h4 className="font-semibold mb-3 text-sm">দ্রুত লিংক</h4>
-              <ul className="space-y-2 text-white/50 text-xs">
-                <li><a href="#services" className="hover:text-white transition">আমাদের সেবা</a></li>
-                <li><a href="#plans" className="hover:text-white transition">মেম্বারশিপ প্ল্যান</a></li>
-                <li><Link href="/login" className="hover:text-white transition">সদস্য লগইন</Link></li>
-                <li><a href="https://drive.google.com/drive/folders/1_rmlQSD9lmjuwAwyQrjNJQ8Mt2xF3XQK" className="hover:text-white transition">অ্যাপ ডাউনলোড</a></li>
-              </ul>
-            </div>
-
-            {/* Contact */}
-            <div>
-              <h4 className="font-semibold mb-3 text-sm">যোগাযোগ</h4>
-              <ul className="space-y-3 text-white/60 text-xs">
-                <li className="flex items-start gap-2">
-                  <MapPin size={14} className="text-[#FF6D00] mt-0.5 flex-shrink-0" />
-                  বাগেরহাট সদর, খুলনা বিভাগ, বাংলাদেশ
-                </li>
-                <li className="flex items-center gap-2">
-                  <Phone size={14} className="text-[#FF6D00] flex-shrink-0" />
-                  <a href="tel:+8801309665159" className="hover:text-white transition">
-                    01309 665159
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-white/30 text-[11px]">
-            <p>© ২০২৬ ফিটনেস কেয়ার বাগেরহাট। সমস্ত অধিকার সংরক্ষিত।</p>
-            <p>ডিজাইন ও ডেভেলপ — চন্দন সাহা নীল</p>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   )
 }

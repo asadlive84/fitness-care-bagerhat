@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { api } from '@/lib/api'
 import type { ApiResponse } from '@/types'
+import { PublicHeader } from '@/components/public-header'
+import { PublicFooter } from '@/components/public-footer'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -89,24 +91,28 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="glass rounded-2xl p-10 max-w-sm w-full text-center space-y-4"
-        >
-          <CheckCircle size={56} weight="fill" className="text-primary mx-auto" />
-          <h2 className="text-xl font-bold">Registration Submitted!</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Your registration is pending admin approval. We will contact you with your login details once approved.
-          </p>
-          <Button
-            className="w-full bg-primary text-white hover:bg-primary/90"
-            onClick={() => router.replace('/login')}
+      <div className="min-h-screen flex flex-col bg-[#F5F7F0]" lang="bn">
+        <PublicHeader />
+        <main className="flex-1 flex items-center justify-center px-4 pt-14">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="glass rounded-2xl p-10 max-w-sm w-full text-center space-y-4"
           >
-            Back to Login
-          </Button>
-        </motion.div>
+            <CheckCircle size={56} weight="fill" className="text-primary mx-auto" />
+            <h2 className="text-xl font-bold">Registration Submitted!</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Your registration is pending admin approval. We will contact you with your login details once approved.
+            </p>
+            <Button
+              className="w-full bg-primary text-white hover:bg-primary/90"
+              onClick={() => router.replace('/login')}
+            >
+              Back to Login
+            </Button>
+          </motion.div>
+        </main>
+        <PublicFooter />
       </div>
     )
   }
@@ -114,26 +120,29 @@ export default function RegisterPage() {
   const selectCls = "w-full h-11 rounded-md border border-input bg-white/60 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-10 relative overflow-hidden">
-      <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-primary/8 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-accent/5 blur-3xl pointer-events-none" />
+    <div className="min-h-screen flex flex-col bg-[#F5F7F0]" lang="bn">
+      <PublicHeader />
 
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-2xl relative z-10"
-      >
-        {/* Brand */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-3 shadow-lg shadow-primary/25">
-            <Plant size={26} weight="fill" className="text-white" />
+      <main className="flex-1 flex items-center justify-center px-4 pt-20 pb-10 relative overflow-hidden">
+        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-primary/8 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-accent/5 blur-3xl pointer-events-none" />
+
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-2xl relative z-10"
+        >
+          {/* Brand */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-3 shadow-lg shadow-primary/25">
+              <Plant size={26} weight="fill" className="text-white" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">Create Account</h1>
+            <p className="text-sm text-muted-foreground mt-1">Fitness Care Bagerhat</p>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Create Account</h1>
-          <p className="text-sm text-muted-foreground mt-1">Fitness Care Bagerhat</p>
-        </div>
 
-        <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-5">
+          <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             {/* Full Name */}
@@ -296,8 +305,11 @@ export default function RegisterPage() {
             Already have an account?{' '}
             <Link href="/login" className="text-primary font-medium hover:underline">Sign in</Link>
           </p>
-        </form>
-      </motion.div>
+          </form>
+        </motion.div>
+      </main>
+
+      <PublicFooter />
     </div>
   )
 }
