@@ -23,6 +23,7 @@ import 'package:fitness_care_bagerhat/features/admin/payments/payment_repository
 import 'package:fitness_care_bagerhat/features/admin/payments/widgets/record_payment_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:fitness_care_bagerhat/features/member/home/diet_chart_detail_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -1560,25 +1561,31 @@ class _AiNutritionCardState extends ConsumerState<_AiNutritionCard> {
           ),
           if (member.dietChart != null) ...[
             const SizedBox(height: AppSpacing.s16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.success.withValues(alpha: 0.08),
-                borderRadius: AppSpacing.r8,
-                border: Border.all(color: AppColors.success.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                children: [
-                  Icon(PhosphorIcons.checkCircle(PhosphorIconsStyle.fill), color: AppColors.success, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'This member has an active AI Diet Chart.',
-                      style: AppText.bodySmall.copyWith(color: AppColors.success, fontWeight: FontWeight.bold),
+            GestureDetector(
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => DietChartDetailScreen(member: member, title: '${member.name}\'s Diet Chart'),
+              )),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.08),
+                  borderRadius: AppSpacing.r12,
+                  border: Border.all(color: AppColors.success.withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(PhosphorIcons.checkCircle(PhosphorIconsStyle.fill), color: AppColors.success, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Active Diet Chart — Tap to view',
+                        style: AppText.bodySmall.copyWith(color: AppColors.success, fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  ),
-                ],
+                    Icon(PhosphorIcons.caretRight(), color: AppColors.success, size: 16),
+                  ],
+                ),
               ),
             ),
           ],
@@ -1623,8 +1630,26 @@ class _AiNutritionCardState extends ConsumerState<_AiNutritionCard> {
                     style: AppText.bodySmall.copyWith(color: Colors.amber.shade900, height: 1.4),
                   ),
                   const SizedBox(height: AppSpacing.s16),
-                  // Meal schedule list preview
-                  _PendingDietPreview(chart: member.pendingDietChart!),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.amber.shade900,
+                        side: BorderSide(color: Colors.amber.shade400),
+                        shape: RoundedRectangleBorder(borderRadius: AppSpacing.r12),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      icon: Icon(PhosphorIcons.eye(), size: 18),
+                      label: const Text('Preview Full Diet Chart', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => DietChartDetailScreen(
+                          member: member,
+                          overrideChart: member.pendingDietChart,
+                          title: 'Pending Diet Chart',
+                        ),
+                      )),
+                    ),
+                  ),
                   const SizedBox(height: AppSpacing.s16),
                   Row(
                     children: [

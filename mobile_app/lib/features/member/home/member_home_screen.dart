@@ -617,7 +617,10 @@ class _DietPlanCard extends StatelessWidget {
   final Member member;
 
   Map<String, dynamic>? _getNextMeal(Map<String, dynamic> dietChart) {
-    final rawMeals = dietChart['meals'] as List<dynamic>? ?? [];
+    final isNew = dietChart.containsKey('detailed_diet_chart');
+    final rawMeals = isNew
+        ? (dietChart['detailed_diet_chart'] as List<dynamic>? ?? [])
+        : (dietChart['meals'] as List<dynamic>? ?? []);
     if (rawMeals.isEmpty) return null;
 
     final meals = rawMeals.map((e) => Map<String, dynamic>.from(e as Map)).toList();
@@ -626,7 +629,10 @@ class _DietPlanCard extends StatelessWidget {
     List<(Map<String, dynamic>, DateTime)> mealTimePairs = [];
 
     for (final meal in meals) {
-      final String? timeStr = meal['time'] as String?;
+      // Support both old ('time') and new ('ideal_time') schema fields.
+      // ideal_time may be a range like "7:00 AM - 8:00 AM"; take the first part.
+      final raw = (meal['time'] ?? meal['ideal_time']) as String?;
+      final String? timeStr = raw?.split(RegExp(r'[-–]')).first.trim();
       if (timeStr == null || timeStr.trim().isEmpty) continue;
       try {
         final cleanTime = timeStr.trim();
@@ -720,16 +726,23 @@ class _DietPlanCard extends StatelessWidget {
       );
     }
 
-    final dailyCalories = chart['daily_calories'] ?? 2000;
+    final isNewSchema = chart.containsKey('detailed_diet_chart');
+    final int dailyCalories;
+    if (isNewSchema) {
+      final targets = chart['daily_targets'] as Map<String, dynamic>? ?? {};
+      dailyCalories = (targets['target_calories'] as num?)?.toInt() ?? 2000;
+    } else {
+      dailyCalories = (chart['daily_calories'] as num?)?.toInt() ?? 2000;
+    }
     final macros = chart['macros'] as Map<String, dynamic>? ?? {};
-    final protein = macros['protein'] ?? 150;
-    final carbs = macros['carbs'] ?? 200;
-    final fats = macros['fats'] ?? 65;
+    final protein = isNewSchema ? ((chart['daily_targets'] as Map<String, dynamic>?)?['protein_g'] ?? 150) : macros['protein'] ?? 150;
+    final carbs   = isNewSchema ? ((chart['daily_targets'] as Map<String, dynamic>?)?['carbs_g']   ?? 200) : macros['carbs']   ?? 200;
+    final fats    = isNewSchema ? ((chart['daily_targets'] as Map<String, dynamic>?)?['fat_g']     ?? 65)  : macros['fats']    ?? 65;
 
     final nextMeal = _getNextMeal(chart);
     final String nextMealText = nextMeal != null
-        ? 'Next meal at ${nextMeal['time'] ?? '08:30 AM'} — ${nextMeal['name'] ?? 'Meal'}'
-        : 'View your nutrition timeline';
+        ? 'Next meal at ${nextMeal['time'] ?? nextMeal['ideal_time'] ?? '08:30 AM'} — ${nextMeal['name'] ?? nextMeal['meal_name'] ?? 'Meal'}'
+        : 'Tap to view your nutrition plan';
 
     return GestureDetector(
       onTap: () => context.push(Routes.memberDietChart, extra: member),

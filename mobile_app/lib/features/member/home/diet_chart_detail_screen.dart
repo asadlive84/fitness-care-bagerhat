@@ -6,12 +6,14 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class DietChartDetailScreen extends StatelessWidget {
-  const DietChartDetailScreen({super.key, required this.member});
+  const DietChartDetailScreen({super.key, required this.member, this.overrideChart, this.title});
   final Member member;
+  final Map<String, dynamic>? overrideChart;
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
-    final chart = member.dietChart;
+    final chart = overrideChart ?? member.dietChart;
     if (chart == null) {
       return const _EmptyState();
     }
@@ -77,7 +79,7 @@ class DietChartDetailScreen extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'আপনার পুষ্টি পরিকল্পনা',
+          title ?? 'আপনার পুষ্টি পরিকল্পনা',
           style: AppText.titleLarge.copyWith(color: AppColors.textOnDark),
         ),
         centerTitle: true,
