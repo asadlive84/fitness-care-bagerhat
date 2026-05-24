@@ -1,0 +1,2 @@
+ALTER TABLE plan_templates
+  ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT true;

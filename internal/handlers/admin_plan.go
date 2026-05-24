@@ -17,9 +17,11 @@ import (
 type adminPlanSvc interface {
 	CreatePlan(ctx context.Context, req services.CreatePlanRequest) (*models.PlanTemplate, error)
 	ListPlans(ctx context.Context) ([]*models.PlanTemplate, error)
+	ListPublicPlans(ctx context.Context) ([]*models.PlanTemplate, error)
 	ListPlansWithSubscribers(ctx context.Context, filter models.PlanListFilter) (*models.PlansListResponse, error)
 	UpdatePlan(ctx context.Context, id uuid.UUID, req services.UpdatePlanRequest) (*models.PlanTemplate, error)
 	DeletePlan(ctx context.Context, id uuid.UUID) error
+	SetPlanVisibility(ctx context.Context, id uuid.UUID, isPublic bool) (*models.PlanTemplate, error)
 }
 
 // AdminPlanHandler holds HTTP handlers for plan-template management.
@@ -228,13 +230,44 @@ func (h *AdminPlanHandler) DeletePlan(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-// PublicListPlans returns all active plan templates — no auth required.
+// PublicListPlans returns only is_public=true plans — no auth required.
 // Used by the public landing page to display pricing.
 func (h *AdminPlanHandler) PublicListPlans(c *fiber.Ctx) error {
-	plans, err := h.svc.ListPlans(c.UserContext())
+	plans, err := h.svc.ListPublicPlans(c.UserContext())
 	if err != nil {
 		h.log.ErrorContext(c.UserContext(), "public list plans", "error", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Failed to load plans", nil)
 	}
 	return utils.SuccessResponse(c, fiber.StatusOK, plans)
+}
+
+// SetPlanVisibility godoc
+// @Summary     Toggle frontend visibility of a plan
+// @Tags        admin/plans
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param       id   path string true "Plan UUID"
+// @Success     200 {object} map[string]any
+// @Router      /api/v1/admin/plans/{id}/visibility [patch]
+func (h *AdminPlanHandler) SetPlanVisibility(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "INVALID_ID", "Plan ID must be a valid UUID", nil)
+	}
+	var req struct {
+		IsPublic bool `json:"is_public"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "BAD_REQUEST", "Invalid request body", nil)
+	}
+	plan, err := h.svc.SetPlanVisibility(c.UserContext(), id, req.IsPublic)
+	if err != nil {
+		if errors.Is(err, services.ErrNotFound) {
+			return utils.ErrorResponse(c, fiber.StatusNotFound, "NOT_FOUND", "Plan not found", nil)
+		}
+		h.log.ErrorContext(c.UserContext(), "set plan visibility", "error", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", "Update failed", nil)
+	}
+	return utils.SuccessResponse(c, fiber.StatusOK, plan)
 }

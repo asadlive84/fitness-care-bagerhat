@@ -316,10 +316,11 @@ func main() {
 	admin.Patch("/members/:id/profile-picture",    adminMemberHandler.UpdateMemberProfilePicture)
 
 	// Admin — plans (Step 6)
-	admin.Post("/plans",        adminPlanHandler.CreatePlan)
-	admin.Get("/plans",         adminPlanHandler.ListPlans)
-	admin.Patch("/plans/:id",   adminPlanHandler.UpdatePlan)
-	admin.Delete("/plans/:id",  adminPlanHandler.DeletePlan)
+	admin.Post("/plans",                   adminPlanHandler.CreatePlan)
+	admin.Get("/plans",                    adminPlanHandler.ListPlans)
+	admin.Patch("/plans/:id",              adminPlanHandler.UpdatePlan)
+	admin.Patch("/plans/:id/visibility",   adminPlanHandler.SetPlanVisibility)
+	admin.Delete("/plans/:id",             adminPlanHandler.DeletePlan)
 
 	// Admin — subscriptions (Step 6)
 	admin.Post("/members/:id/subscriptions",          adminSubHandler.AssignPlan)

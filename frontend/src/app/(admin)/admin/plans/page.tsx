@@ -1,17 +1,34 @@
 'use client'
 
 import { useState } from 'react'
-import { useAdminPlans, useCreatePlan, useUpdatePlan, useDeletePlan } from '@/hooks/use-admin'
+import { useAdminPlans, useCreatePlan, useUpdatePlan, useDeletePlan, useSetPlanVisibility } from '@/hooks/use-admin'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Scroll, Plus, PencilSimple, Trash, Users } from '@phosphor-icons/react'
-import type { Plan } from '@/types/admin'
+import { Scroll, Plus, PencilSimple, Trash, Users, Eye, EyeSlash } from '@phosphor-icons/react'
+import type { Plan, PlanWithSubscribers } from '@/types/admin'
 
 type PlanForm = { name: string; default_price: string; duration_days: string; billing_type: string }
 const EMPTY: PlanForm = { name: '', default_price: '', duration_days: '', billing_type: 'prepaid' }
+
+function VisibilityToggle({ plan }: { plan: PlanWithSubscribers }) {
+  const toggle = useSetPlanVisibility(plan.id)
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className={`gap-1 text-xs ${plan.is_public ? 'text-green-600 border-green-300 hover:bg-green-50' : 'text-muted-foreground border-dashed hover:bg-muted/40'}`}
+      disabled={toggle.isPending}
+      onClick={() => toggle.mutate(!plan.is_public)}
+      title={plan.is_public ? 'Shown on public site — click to hide' : 'Hidden from public site — click to show'}
+    >
+      {plan.is_public ? <Eye size={12} weight="fill" /> : <EyeSlash size={12} />}
+      {plan.is_public ? 'Public' : 'Hidden'}
+    </Button>
+  )
+}
 
 export default function AdminPlans() {
   const { data: plans = [], isLoading } = useAdminPlans()
@@ -58,7 +75,7 @@ export default function AdminPlans() {
       ) : (
         <div className="grid sm:grid-cols-2 gap-3">
           {plans.map((plan) => (
-            <div key={plan.id} className="bg-card border border-border rounded-2xl p-4">
+            <div key={plan.id} className={`bg-card border rounded-2xl p-4 transition ${plan.is_public ? 'border-border' : 'border-dashed border-muted-foreground/30 opacity-75'}`}>
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <p className="font-bold">{plan.name}</p>
@@ -83,6 +100,7 @@ export default function AdminPlans() {
               )}
 
               <div className="flex gap-2">
+                <VisibilityToggle plan={plan} />
                 <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => openEdit(plan)}>
                   <PencilSimple size={12} /> Edit
                 </Button>

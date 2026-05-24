@@ -39,6 +39,7 @@ export interface Plan {
   default_price: number
   duration_days: number
   billing_type: 'prepaid' | 'postpaid'
+  is_public: boolean
   member_count?: number
   created_at?: string
 }

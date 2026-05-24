@@ -86,6 +86,15 @@ func (r *PlanRepo) ListWithSubscribers(ctx context.Context, filter models.PlanLi
 	return r.db.ListWithSubscribers(ctx, filter)
 }
 
+// SetPublic writes to DB then busts the list cache.
+func (r *PlanRepo) SetPublic(ctx context.Context, id uuid.UUID, isPublic bool) error {
+	if err := r.db.SetPublic(ctx, id, isPublic); err != nil {
+		return err
+	}
+	r.invalidatePlans(ctx)
+	return nil
+}
+
 func (r *PlanRepo) invalidatePlans(ctx context.Context) {
 	if err := r.cache.Delete(ctx, plansCacheKey); err != nil {
 		r.log.WarnContext(ctx, "cache delete plans", "error", err)

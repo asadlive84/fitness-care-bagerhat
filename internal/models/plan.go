@@ -13,6 +13,7 @@ type PlanTemplate struct {
 	DurationDays int32     `json:"duration_days"`
 	DefaultPrice float64   `json:"default_price"`
 	BillingType  string    `json:"billing_type"` // prepaid | postpaid
+	IsPublic     bool      `json:"is_public"`     // visible on public landing page
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 	MemberCount  int       `json:"member_count"`

@@ -80,6 +80,9 @@ type PlanRepository interface {
 	// the requested period), active subscriber details, and a cross-plan summary.
 	// Never cached — financial data must always be live.
 	ListWithSubscribers(ctx context.Context, filter models.PlanListFilter) (*models.PlansListResponse, error)
+
+	// SetPublic flips the is_public flag for one plan.
+	SetPublic(ctx context.Context, id uuid.UUID, isPublic bool) error
 }
 
 // SubscriptionRepository covers subscriptions persistence.

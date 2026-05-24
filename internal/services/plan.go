@@ -49,6 +49,7 @@ func (s *PlanService) CreatePlan(ctx context.Context, req CreatePlanRequest) (*m
 		DurationDays: req.DurationDays,
 		DefaultPrice: req.DefaultPrice,
 		BillingType:  billingType,
+		IsPublic:     true, // visible on public landing page by default
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -65,6 +66,36 @@ func (s *PlanService) ListPlans(ctx context.Context) ([]*models.PlanTemplate, er
 		return nil, fmt.Errorf("list plans: %w", err)
 	}
 	return plans, nil
+}
+
+// ListPublicPlans returns only plans flagged is_public=true — used by the public landing page.
+func (s *PlanService) ListPublicPlans(ctx context.Context) ([]*models.PlanTemplate, error) {
+	all, err := s.plans.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list public plans: %w", err)
+	}
+	result := make([]*models.PlanTemplate, 0, len(all))
+	for _, p := range all {
+		if p.IsPublic {
+			result = append(result, p)
+		}
+	}
+	return result, nil
+}
+
+// SetPlanVisibility toggles the is_public flag for a plan.
+func (s *PlanService) SetPlanVisibility(ctx context.Context, id uuid.UUID, isPublic bool) (*models.PlanTemplate, error) {
+	if err := s.plans.SetPublic(ctx, id, isPublic); err != nil {
+		if errors.Is(err, repositories.ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("set plan visibility: %w", err)
+	}
+	plan, err := s.plans.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("fetch plan after visibility update: %w", err)
+	}
+	return plan, nil
 }
 
 // ListPlansWithSubscribers returns plans with pro-rated financials for the given

@@ -204,7 +204,7 @@ export function useAdminPlans(params: { month?: string } = {}) {
 export function useCreatePlan() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: Omit<Plan, 'id' | 'member_count' | 'created_at'>) => {
+    mutationFn: async (payload: Omit<Plan, 'id' | 'member_count' | 'created_at' | 'is_public'>) => {
       const { data } = await api.post<ApiResponse<Plan>>(`${BASE}/plans`, payload)
       return data.data!
     },
@@ -227,6 +227,17 @@ export function useDeletePlan() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => { await api.delete(`${BASE}/plans/${id}`) },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'plans'] }),
+  })
+}
+
+export function useSetPlanVisibility(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (isPublic: boolean) => {
+      const { data } = await api.patch<ApiResponse<Plan>>(`${BASE}/plans/${id}/visibility`, { is_public: isPublic })
+      return data.data!
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'plans'] }),
   })
 }

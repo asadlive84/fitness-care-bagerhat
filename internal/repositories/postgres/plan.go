@@ -25,10 +25,10 @@ func NewPlanRepo(db sqlcdb.DBTX) *PlanRepo {
 
 func (r *PlanRepo) Create(ctx context.Context, p *models.PlanTemplate) error {
 	const query = `
-		INSERT INTO plan_templates (id, name, duration_days, default_price, billing_type, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		INSERT INTO plan_templates (id, name, duration_days, default_price, billing_type, is_public, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	_, err := r.db.ExecContext(ctx, query,
-		p.ID, p.Name, p.DurationDays, p.DefaultPrice, p.BillingType, p.CreatedAt, p.UpdatedAt,
+		p.ID, p.Name, p.DurationDays, p.DefaultPrice, p.BillingType, p.IsPublic, p.CreatedAt, p.UpdatedAt,
 	)
 	return mapErr(err)
 }
@@ -37,12 +37,12 @@ func (r *PlanRepo) Create(ctx context.Context, p *models.PlanTemplate) error {
 // Returns repositories.ErrNotFound when no row matches.
 func (r *PlanRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.PlanTemplate, error) {
 	const query = `
-		SELECT id, name, duration_days, default_price, billing_type, created_at, updated_at
+		SELECT id, name, duration_days, default_price, billing_type, is_public, created_at, updated_at
 		FROM plan_templates
 		WHERE id = $1`
 	row := r.db.QueryRowContext(ctx, query, id)
 	p := &models.PlanTemplate{}
-	err := row.Scan(&p.ID, &p.Name, &p.DurationDays, &p.DefaultPrice, &p.BillingType, &p.CreatedAt, &p.UpdatedAt)
+	err := row.Scan(&p.ID, &p.Name, &p.DurationDays, &p.DefaultPrice, &p.BillingType, &p.IsPublic, &p.CreatedAt, &p.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, repositories.ErrNotFound
 	}
@@ -64,6 +64,7 @@ func (r *PlanRepo) List(ctx context.Context) ([]*models.PlanTemplate, error) {
 			pt.duration_days,
 			pt.default_price,
 			pt.billing_type,
+			pt.is_public,
 			pt.created_at,
 			pt.updated_at,
 			COUNT(s.id) FILTER (WHERE s.status = 'active') AS member_count
@@ -87,6 +88,7 @@ func (r *PlanRepo) List(ctx context.Context) ([]*models.PlanTemplate, error) {
 			&p.DurationDays,
 			&p.DefaultPrice,
 			&p.BillingType,
+			&p.IsPublic,
 			&p.CreatedAt,
 			&p.UpdatedAt,
 			&p.MemberCount,
@@ -109,10 +111,11 @@ func (r *PlanRepo) Update(ctx context.Context, p *models.PlanTemplate) error {
 		    duration_days = $2,
 		    default_price = $3,
 		    billing_type  = $4,
-		    updated_at    = $5
-		WHERE id = $6`
+		    is_public     = $5,
+		    updated_at    = $6
+		WHERE id = $7`
 	result, err := r.db.ExecContext(ctx, query,
-		p.Name, p.DurationDays, p.DefaultPrice, p.BillingType, time.Now(), p.ID,
+		p.Name, p.DurationDays, p.DefaultPrice, p.BillingType, p.IsPublic, time.Now(), p.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update plan: %w", mapErr(err))
@@ -123,6 +126,23 @@ func (r *PlanRepo) Update(ctx context.Context, p *models.PlanTemplate) error {
 	}
 	if n == 0 {
 		return fmt.Errorf("update plan: %w", repositories.ErrNotFound)
+	}
+	return nil
+}
+
+// SetPublic flips the is_public visibility flag for one plan.
+func (r *PlanRepo) SetPublic(ctx context.Context, id uuid.UUID, isPublic bool) error {
+	const query = `UPDATE plan_templates SET is_public = $1, updated_at = $2 WHERE id = $3`
+	result, err := r.db.ExecContext(ctx, query, isPublic, time.Now(), id)
+	if err != nil {
+		return fmt.Errorf("set plan public: %w", mapErr(err))
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("set plan public rows affected: %w", err)
+	}
+	if n == 0 {
+		return repositories.ErrNotFound
 	}
 	return nil
 }
@@ -199,7 +219,7 @@ func (r *PlanRepo) fetchPlanFinancials(
 		query = `
 			SELECT
 				pt.id, pt.name, pt.duration_days, pt.default_price,
-				pt.billing_type, pt.created_at, pt.updated_at,
+				pt.billing_type, pt.is_public, pt.created_at, pt.updated_at,
 				COUNT(s.id)                     AS subscriptions_started,
 				COALESCE(SUM(s.final_price), 0) AS total_billed,
 				COALESCE(SUM(sp.sub_paid), 0)   AS total_collected
@@ -211,7 +231,7 @@ func (r *PlanRepo) fetchPlanFinancials(
 				GROUP BY subscription_id
 			) sp ON sp.subscription_id = s.id
 			GROUP BY pt.id, pt.name, pt.duration_days, pt.default_price,
-			         pt.billing_type, pt.created_at, pt.updated_at
+			         pt.billing_type, pt.is_public, pt.created_at, pt.updated_at
 			ORDER BY pt.created_at DESC`
 	} else {
 		// ── Period: subscription sold + payment received in [from, to] ────
@@ -227,7 +247,7 @@ func (r *PlanRepo) fetchPlanFinancials(
 		query = `
 			SELECT
 				pt.id, pt.name, pt.duration_days, pt.default_price,
-				pt.billing_type, pt.created_at, pt.updated_at,
+				pt.billing_type, pt.is_public, pt.created_at, pt.updated_at,
 				COUNT(DISTINCT s.id) FILTER (
 					WHERE s.start_date BETWEEN $1 AND $2
 				) AS subscriptions_started,
@@ -242,7 +262,7 @@ func (r *PlanRepo) fetchPlanFinancials(
 			LEFT JOIN subscriptions s ON s.plan_template_id = pt.id
 			LEFT JOIN payments p ON p.subscription_id = s.id
 			GROUP BY pt.id, pt.name, pt.duration_days, pt.default_price,
-			         pt.billing_type, pt.created_at, pt.updated_at
+			         pt.billing_type, pt.is_public, pt.created_at, pt.updated_at
 			ORDER BY pt.created_at DESC`
 		args = []any{filter.From, filter.To}
 	}
@@ -260,6 +280,7 @@ func (r *PlanRepo) fetchPlanFinancials(
 			dur       int32
 			defPrice  float64
 			billing   string
+			isPublic  bool
 			createdAt time.Time
 			updatedAt time.Time
 			started   int
@@ -267,7 +288,7 @@ func (r *PlanRepo) fetchPlanFinancials(
 			collected float64
 		)
 		if err := rows.Scan(
-			&planID, &planName, &dur, &defPrice, &billing, &createdAt, &updatedAt,
+			&planID, &planName, &dur, &defPrice, &billing, &isPublic, &createdAt, &updatedAt,
 			&started, &billed, &collected,
 		); err != nil {
 			return nil, nil, overall, fmt.Errorf("scan plan financials: %w", err)
@@ -285,6 +306,7 @@ func (r *PlanRepo) fetchPlanFinancials(
 				DurationDays: dur,
 				DefaultPrice: defPrice,
 				BillingType:  billing,
+				IsPublic:     isPublic,
 				CreatedAt:    createdAt,
 				UpdatedAt:    updatedAt,
 			},
