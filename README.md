@@ -1,5 +1,8 @@
 # Fitness Care Bagerhat — Gym Management API
 
+
+### Note: This app fullly learning purpose and this application for my little brother Gym. you can use this app fully free howeber you have to use own server
+
 Production-grade REST API for a single-gym management system in Bagerhat, Bangladesh.  
 Built with Go, Fiber v2, PostgreSQL, and Redis.
 
